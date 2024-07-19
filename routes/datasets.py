@@ -3,12 +3,13 @@ import shutil
 import json
 from bson import ObjectId
 import uuid
+import traceback
 
 from flask import Blueprint, request, jsonify
 from services.dataset_service import DatasetService
 from routes.auth import jwt_required
 
-from utils.dataset.verify_coco_format import validate_coco_format, find_valid_images
+from utils.dataset.create_datatset import create_dataset_helper
 
 datasets_bp = Blueprint('dataset', __name__)
 dataset_raw_root = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/dataset_raw'
@@ -24,34 +25,25 @@ def create_dataset(user_id):
         data = json.loads(request.form.to_dict()['data'])
         name = data['name']
         detect_types = list(data['detect_types'])
+        dataset_format = list(data['dataset_format'])
+        dataset_format = [d.lower() for d in dataset_format]
         description = data['description']
         r_label_file = [d['name'] for d in data['label_file']][-1]
         r_image_list = [d['name'] for d in data['image_list']]
-        
         save_key = str(uuid.uuid4())
-        output_dir = os.path.join(dataset_raw_root, user_id, save_key)
-        os.makedirs(output_dir, exist_ok=True)
-        label_file_save_path = os.path.join(output_dir, label_file.filename)
-        label_file.save(label_file_save_path)
-        with open(label_file_save_path, 'r') as f:
-            json_data = f.read()
-        # 验证格式
-        valid, coco_data = validate_coco_format(json_data)
-        if valid:
-            valid_images = find_valid_images(r_image_list, coco_data)
-        else:
-            raise ValueError('不合規的 COCO 標注文件')
+        valid_images = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format,
+                                      detect_types, r_image_list, label_file, image_files)
         
-        for file in image_files:
-            if file:
-                filename = file.filename
-                file.save(os.path.join(output_dir, filename))
-        result = DatasetService.create_dataset(ObjectId(user_id), name, description, detect_types, r_label_file, r_image_list, len(valid_images), save_key)
+        result = DatasetService\
+                .create_dataset(ObjectId(user_id), name, description, detect_types, 
+                                               r_label_file, r_image_list, valid_images, 
+                                               save_key, dataset_format)
         if not result:
             raise ValueError('保存資料集錯誤')
         return jsonify({ 'code': 200, 'show_msg': 'ok', 'msg': 'ok', 'results': None }), 200
     except Exception as e:
-        return jsonify({ 'code': 500, 'show_msg': 'error', 'msg': str(e), 'results': None }), 500
+        print(traceback.print_exc())
+        return jsonify({ 'code': 500, 'show_msg': 'error', 'msg': str(e), 'results': None }), 200
 
 @datasets_bp.route('/datasets/<dataset_id>', methods=['GET'])
 def get_dataset(dataset_id):

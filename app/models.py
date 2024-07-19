@@ -103,7 +103,7 @@ class User:
 
 
 class Dataset:
-    def __init__(self, user_id, name, description, detect_types, label_file, image_files, valid_images_num, save_key, format='MSCOCO', created_at=None):
+    def __init__(self, user_id, name, description, detect_types, label_file, image_files, valid_images_num, save_key, format=['mscoco'], created_at=None):
         self._id = None
         self.user_id = user_id
         self.name = name
