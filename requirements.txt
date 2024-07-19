@@ -1,0 +1,4 @@
+Flask-JWT-Extended
+flask-pymongo
+Flask
+flask-cors
