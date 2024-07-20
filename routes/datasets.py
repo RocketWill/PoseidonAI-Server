@@ -1,4 +1,5 @@
 import os
+import glob
 import shutil
 import json
 from bson import ObjectId
@@ -10,9 +11,11 @@ from services.dataset_service import DatasetService
 from routes.auth import jwt_required
 
 from utils.dataset.create_datatset import create_dataset_helper
+from utils.dataset.tools.visualize_coco_dataset import draw_annotations
 
 datasets_bp = Blueprint('dataset', __name__)
 dataset_raw_root = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/dataset_raw'
+static_folder = '/mnt/f/cy/workspace/EFC/PoseidonAI/static/vis_dataset'
 
 @datasets_bp.route('/create', methods=['POST'])
 @jwt_required
@@ -81,7 +84,6 @@ def update_dataset(dataset_id):
 @jwt_required
 def delete_dataset(user_id, dataset_id):
     try:
-        print(user_id, dataset_id)
         dataset = DatasetService.get_dataset(dataset_id)
         if not dataset:
             raise ValueError("刪除資料集失敗")
@@ -96,3 +98,32 @@ def delete_dataset(user_id, dataset_id):
         return jsonify({'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}), 200
     except Exception as e:
         return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'errpr', 'results': None}), 500
+
+
+@datasets_bp.route('/vis/<dataset_id>', methods=['GET'])
+@jwt_required
+def vis_dataset(user_id, dataset_id):
+    try:
+        dataset = DatasetService.get_dataset(dataset_id)
+        if not dataset:
+            raise ValueError("Dataset not found")
+        label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
+        image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
+        vis_dir = os.path.join(static_folder, user_id, dataset.save_key, 'preview')
+        detect_types = dataset.detect_types
+        draw_masks = True if 'seg' in detect_types else False
+        draw_bboxes = True if 'det' in detect_types else False
+        os.makedirs(vis_dir, exist_ok=True)
+        draw_annotations(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
+        return jsonify({'code': 200, 'msg': 'Process preview images successfully', 'show_msg': 'ok', 'results': None}), 200
+    except Exception as e:
+        return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'error', 'results': None}), 200
+    
+# {'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}
+# image_directory = 'image'
+#     coco_annotation_file = '/mnt/d/workspace/general/plot_coco_dataset/instances_val.json'
+#     output_directory = 'res'
+#     draw_masks = True  # Set to False if you don't want to draw masks
+#     draw_bboxes = False  # Set to True if you want to draw bounding boxes
+
+#     draw_annotations(image_directory, coco_annotation_file, output_directory, draw_mask=draw_masks, draw_bbox=draw_bboxes)
