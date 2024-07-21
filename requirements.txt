@@ -6,3 +6,5 @@ pycocotools
 pillow
 tqdm
 opencv-python
+Flask-Celery-Helper
+celery[redis]
