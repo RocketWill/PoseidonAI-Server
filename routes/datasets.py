@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import json
+import ntpath
 from bson import ObjectId
 import uuid
 import traceback
@@ -9,13 +10,14 @@ import traceback
 from flask import Blueprint, request, jsonify
 from services.dataset_service import DatasetService
 from routes.auth import jwt_required
+from celery.result import AsyncResult
 
 from utils.dataset.create_datatset import create_dataset_helper
-from utils.dataset.tools.visualize_coco_dataset import draw_annotations
+from tasks.dataset import draw_annotations_task
 
 datasets_bp = Blueprint('dataset', __name__)
 dataset_raw_root = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/dataset_raw'
-static_folder = '/mnt/f/cy/workspace/EFC/PoseidonAI/static/vis_dataset'
+static_folder = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/static/dataset_visualization'
 
 @datasets_bp.route('/create', methods=['POST'])
 @jwt_required
@@ -89,10 +91,12 @@ def delete_dataset(user_id, dataset_id):
             raise ValueError("刪除資料集失敗")
         save_key = dataset.save_key
         dataset_dir = os.path.join(dataset_raw_root, user_id, save_key)
+        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
         if not os.path.exists(dataset_dir):
             raise ValueError("找不到資料集位置")
         if DatasetService.delete_dataset(dataset_id):
             shutil.rmtree(dataset_dir)
+            shutil.rmtree(vis_dir)
         else:
             raise ValueError("刪除資料集失敗")
         return jsonify({'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}), 200
@@ -100,7 +104,7 @@ def delete_dataset(user_id, dataset_id):
         return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'errpr', 'results': None}), 500
 
 
-@datasets_bp.route('/vis/<dataset_id>', methods=['GET'])
+@datasets_bp.route('/vis/<dataset_id>', methods=['POST'])
 @jwt_required
 def vis_dataset(user_id, dataset_id):
     try:
@@ -109,21 +113,47 @@ def vis_dataset(user_id, dataset_id):
             raise ValueError("Dataset not found")
         label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
         image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
-        vis_dir = os.path.join(static_folder, user_id, dataset.save_key, 'preview')
+        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
         detect_types = dataset.detect_types
         draw_masks = True if 'seg' in detect_types else False
         draw_bboxes = True if 'det' in detect_types else False
         os.makedirs(vis_dir, exist_ok=True)
-        draw_annotations(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
-        return jsonify({'code': 200, 'msg': 'Process preview images successfully', 'show_msg': 'ok', 'results': None}), 200
+        
+        task = draw_annotations_task.delay(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
+        print(task.id)
+        return jsonify({'code': 200, 'msg': 'Process preview images successfully', 'show_msg': 'ok', 'results': task.id}), 200
     except Exception as e:
+        traceback.print_exc()
         return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'error', 'results': None}), 200
     
-# {'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}
-# image_directory = 'image'
-#     coco_annotation_file = '/mnt/d/workspace/general/plot_coco_dataset/instances_val.json'
-#     output_directory = 'res'
-#     draw_masks = True  # Set to False if you don't want to draw masks
-#     draw_bboxes = False  # Set to True if you want to draw bounding boxes
+@datasets_bp.route('/vis/<task_id>', methods=['GET'])
+def vis_dataset_status(task_id):
+    try:
+        task = draw_annotations_task.AsyncResult(task_id)
+        print(task.status)
+        return jsonify({'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': task.status}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'error', 'results': 'FAILURE'}), 200
 
-#     draw_annotations(image_directory, coco_annotation_file, output_directory, draw_mask=draw_masks, draw_bbox=draw_bboxes)
+@datasets_bp.route('/checkVis/<dataset_id>', methods=['GET'])
+@jwt_required
+def check_is_vis_dataset_existed(user_id, dataset_id):
+    exists = False
+    files = [] 
+    msg = 'Dataset visualization directory dose not exist.'
+    try:
+        dataset = DatasetService.get_dataset(dataset_id)
+        if not dataset:
+            raise ValueError("Dataset not found")
+        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
+        if os.path.exists(vis_dir):
+            exists = True
+            files = glob.glob(os.path.join(vis_dir, "*"))
+            files = [ntpath.basename(f) for f in files]
+            msg = 'Dataset visualization directory exists.'
+        return jsonify({'code': 200, 'msg': msg, 'show_msg': 'ok', 'results': { 'exists': exists, 'files': files }}), 200
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'error', 'results': { 'exists': exists, 'files': files }}), 200
