@@ -3,14 +3,14 @@ import os
 from .tools.verify_coco_format import validate_coco_format, find_valid_images
 from .tools.coco2yolo import convert_coco_json
 
-def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, detect_types, r_image_list, label_file, image_files):
+def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, detect_type, r_image_list, label_file, image_files):
     output_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
     output_coco_dir = os.path.join(dataset_raw_root, user_id, save_key, 'mscoco')
     valid_coco_images = create_coco(output_coco_dir, output_image_dir, r_image_list, label_file, image_files)
     if 'yolo' in dataset_format:
         output_yolo_dir = os.path.join(dataset_raw_root, user_id, save_key, 'yolo')
-        use_segments = True if 'seg' in detect_types else False
-        use_keypoints = True if 'kpts' in detect_types else False
+        use_segments = True if 'seg' in detect_type else False
+        use_keypoints = True if 'kpts' in detect_type else False
         label_file = os.path.join(output_coco_dir, label_file.filename)
         valid_yolo_images = create_yolo(label_file, output_yolo_dir, use_segments, use_keypoints)
         if len(valid_coco_images) != valid_yolo_images:

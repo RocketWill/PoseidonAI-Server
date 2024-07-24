@@ -6,8 +6,8 @@ from app.models import Dataset
 
 class DatasetService:
     @staticmethod
-    def create_dataset(user_id, name, description, detect_type, label_file, image_files, valid_images_num, save_key, format=['mscoco']):
-        dataset = Dataset(user_id, name, description, detect_type, label_file, image_files, valid_images_num, save_key, format)
+    def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids):
+        dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids)
         result = dataset.save()
         return result
 
