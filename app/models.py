@@ -103,33 +103,33 @@ class User:
 
 
 class Dataset:
-    def __init__(self, user_id, name, description, detect_types, label_file, image_files, valid_images_num, save_key, format=['mscoco'], created_at=None):
+    def __init__(self, user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, created_at=None):
         self._id = None
         self.user_id = user_id
         self.name = name
+        self.valid_images_num = valid_images_num
         self.description = description
-        self.format = format
-        self.detect_types = detect_types
+        self.dataset_format_ids = dataset_format_ids
+        self.detect_type_id = detect_type_id
         self.created_at = datetime.utcnow() if not created_at else created_at  # 数据集上传时间
         self.image_files = image_files  # 数据集文件的路径或存储信息
         self.label_file = label_file
-        self.valid_images_num = valid_images_num
         self.save_key = save_key
 
     def save(self):
         # 将数据集信息存储到 MongoDB 中的 datasets 集合
         try:
             mongo.db.datasets.insert_one({
-                'user_id': self.user_id,
+                'user_id': ObjectId(self.user_id),
                 'name': self.name,
                 'description': self.description,
-                'format': self.format,
-                'detect_types': self.detect_types,
+                'dataset_format_ids': [ObjectId(d) for d in self.dataset_format_ids],
+                'detect_type_id': ObjectId(self.detect_type_id),
                 'created_at': self.created_at,
                 'image_files': self.image_files,
                 'label_file': self.label_file,
                 'valid_images_num': self.valid_images_num,
-                'save_key': self.save_key
+                'save_key': self.save_key,
             })
             return True
         except Exception as e:
@@ -143,11 +143,11 @@ class Dataset:
             name=dataset_data['name'],
             description=dataset_data['description'],
             created_at=dataset_data['created_at'],
-            detect_types=dataset_data['detect_types'],
+            detect_type_id=dataset_data['detect_type_id'],
             label_file=dataset_data['label_file'],
             image_files=dataset_data['image_files'],
             valid_images_num=dataset_data['valid_images_num'],
-            format=dataset_data['format'],
+            dataset_format_ids=dataset_data['dataset_format_ids'],
             save_key=dataset_data['save_key']
         )
         user._id = dataset_data['_id']
@@ -160,6 +160,7 @@ class Dataset:
             dataset_dict = mongo.db.datasets.find_one({'_id': ObjectId(dataset_id)})
             return Dataset.from_dict(dataset_dict)
         except:
+            traceback.print_exc()
             return False
         
 
@@ -171,6 +172,8 @@ class Dataset:
             for dataset in datasets:
                 dataset['_id'] = str(dataset['_id'])
                 dataset['user_id'] = str(dataset['user_id'])
+                dataset['dataset_format_ids'] = [str(d) for d in dataset['dataset_format_ids']]
+                dataset['detect_type_id'] = str(dataset['detect_type_id'])
             return datasets
         except:
             print(traceback.print_exc())
@@ -184,7 +187,7 @@ class Dataset:
                 {'$set': {
                     'name': self.name,
                     'description': self.description,
-                    'format': self.format,
+                    'dataset_format_ids': self.dataset_format_ids,
                     'files': self.files,
                     'image_files': self.image_files,
                     'label_file': self.label_file
@@ -319,3 +322,223 @@ class Model:
     def delete(self):
         # 删除模型信息
         mongo.db.models.delete_one({'_id': self.model_id})
+        
+        
+class DetectType:
+    def __init__(self, name, tag_name, description='', created_at=None):
+        self._id = None
+        self.name = name
+        self.tag_name = tag_name
+        self.description = description
+        self.created_at = datetime.utcnow() if not created_at else created_at
+        
+    @staticmethod
+    def from_dict(detect_type_data):
+        detect_type = DetectType(
+            name=detect_type_data['name'],
+            tag_name=detect_type_data['tag_name'],
+            description=detect_type_data['description'],
+            created_at=detect_type_data['created_at'],
+        )
+        detect_type._id = detect_type_data['_id']
+        return detect_type
+    
+    def save(self):
+        try:
+            mongo.db.detect_types.insert_one({
+                'name': self.name,
+                'tag_name': self.tag_name,
+                'description': self.description,
+                'created_at': self.created_at,
+            })
+            return True
+        except Exception as e:
+            print(e)
+        return False
+
+    @staticmethod
+    def find_by_id(detect_type_id):
+        data = mongo.db.detect_types.find_one({'_id': ObjectId(detect_type_id)})
+        if data:
+            return DetectType.from_dict(data)
+        return None
+
+    @staticmethod
+    def list_all():
+        detect_types = mongo.db.detect_types.find()
+        return [DetectType.from_dict(dt) for dt in detect_types]
+
+    def delete(self):
+        if self.id:
+            mongo.db.detect_types.delete_one({'_id': ObjectId(self.id)})
+
+    def __repr__(self):
+        repr_str = f"_id: {self._id}\n"
+        repr_str += f"name: {self.name}\n"
+        repr_str += f"tag_name: {self.tag_name}\n"
+        repr_str += f"description: {self.description}\n"
+        repr_str += f"created_at: {self.created_at}\n"
+        return repr_str
+    
+# For training a model 具体到一个训练任务
+class Algorithm:
+    def __init__(self, name, training_framework_id, detect_type_id, description='', created_at=None):
+        self._id = None
+        self.name = name
+        self.training_framework_id = training_framework_id
+        self.detect_type_id = detect_type_id # DetectType _id
+        self.description = description
+        self.created_at = datetime.utcnow() if not created_at else created_at
+    
+    @staticmethod
+    def from_dict(algorithm_data):
+        algorithm = Algorithm(
+            name=algorithm_data['name'],
+            training_framework_id=algorithm_data['training_framework_id'],
+            detect_type_id=algorithm_data['detect_type_id'],
+            created_at=algorithm_data['created_at'],
+            description=algorithm_data['description'],
+        )
+        algorithm._id = algorithm_data['_id']
+        return algorithm
+
+    def save(self):
+        try:
+            mongo.db.algorithms.insert_one({
+                'name': self.name,
+                'training_framework_id': self.training_framework_id,
+                'detect_type_id': self.detect_type_id,
+                'description': self.description,
+                'created_at': self.created_at,
+            })
+            return True
+        except Exception as e:
+            print(e)
+        return False
+
+    @staticmethod
+    def find_by_id(algorithm_id):
+        return mongo.db.algorithms.find_one({'_id': ObjectId(algorithm_id)})
+    
+    def delete(self):
+        mongo.db.algorithms.delete_one({'_id': self._id})
+    
+    @staticmethod
+    def list_all():
+        algorithms = mongo.db.algorithms.find()
+        return [Algorithm.from_dict(algo) for algo in algorithms]
+    
+    def __repr__(self):
+        repr_str = f"_id: {self._id}\n"
+        repr_str += f"name: {self.name}\n"
+        repr_str += f"training_framework_id: {self.training_framework_id}\n"
+        repr_str += f"detect_type_id: {self.detect_type_id}\n"
+        repr_str += f"description: {self.description}\n"
+        repr_str += f"created_at: {self.created_at}\n"
+        return repr_str
+
+class DatasetFormat:
+    def __init__(self, name, description='', created_at=None):
+        self._id = None
+        self.name = name
+        self.description = description
+        self.created_at = datetime.utcnow() if not created_at else created_at
+    
+    @staticmethod
+    def from_dict(format_data):
+        dataset_format = DatasetFormat(
+            name=format_data['name'],
+            created_at=format_data['created_at'],
+            description=format_data['description'],
+        )
+        dataset_format._id = format_data['_id']
+        return dataset_format
+
+    def save(self):
+        try:
+            mongo.db.dataset_formats.insert_one({
+                'name': self.name,
+                'description': self.description,
+                'created_at': self.created_at,
+            })
+            return True
+        except Exception as e:
+            print(e)
+        return False
+
+    @staticmethod
+    def find_by_id(format_id):
+        try:
+            data = mongo.db.dataset_formats.find_one({'_id': ObjectId(format_id)})
+            return DatasetFormat.from_dict(data)
+        except:
+            return None
+    
+    def delete(self):
+        mongo.db.dataset_formats.delete_one({'_id': self._id})
+    
+    @staticmethod
+    def list_all():
+        dataset_formats = mongo.db.dataset_formats.find()
+        print(dataset_formats[0]['_id'])
+        return [DatasetFormat.from_dict(df) for df in dataset_formats]
+    
+    def __repr__(self):
+        repr_str = f"_id: {self._id}\n"
+        repr_str += f"name: {self.name}\n"
+        repr_str += f"description: {self.description}\n"
+        repr_str += f"created_at: {self.created_at}\n"
+        return repr_str
+
+# For creating configuration files
+class TrainingFramework:
+    def __init__(self, name, dataset_format_id, description='', created_at=None):
+        self._id = None
+        self.dataset_format_id = dataset_format_id
+        self.name = name
+        self.description = description
+        self.created_at = datetime.utcnow() if not created_at else created_at
+    
+    @staticmethod
+    def from_dict(framework_data):
+        training_framework = TrainingFramework(
+            name=framework_data['name'],
+            dataset_format_id=framework_data['dataset_format_id'],
+            created_at=framework_data['created_at'],
+            description=framework_data['description'],
+        )
+        training_framework._id = training_framework['_id']
+        return training_framework
+
+    def save(self):
+        try:
+            mongo.db.training_frameworks.insert_one({
+                'name': self.name,
+                'dataset_format_id': self.dataset_format_id,
+                'description': self.description,
+                'created_at': self.created_at,
+            })
+            return True
+        except Exception as e:
+            print(e)
+        return False
+
+    @staticmethod
+    def find_by_id(format_id):
+        return mongo.db.training_frameworks.find_one({'_id': ObjectId(format_id)})
+    
+    def delete(self):
+        mongo.db.training_frameworks.delete_one({'_id': self._id})
+    
+    @staticmethod
+    def list_all():
+        training_frameworks = mongo.db.training_frameworks.find()
+        return [DatasetFormat.from_dict(tf) for tf in training_frameworks]
+    
+    def __repr__(self):
+        repr_str = f"_id: {self._id}\n"
+        repr_str += f"name: {self.name}\n"
+        repr_str += f"dataset_format_id: {self.dataset_format_id}\n"
+        repr_str += f"description: {self.description}\n"
+        repr_str += f"created_at: {self.created_at}\n"
+        return repr_str
