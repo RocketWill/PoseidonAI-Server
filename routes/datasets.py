@@ -9,6 +9,8 @@ import traceback
 
 from flask import Blueprint, request, jsonify
 from services.dataset_service import DatasetService
+from services.detect_type_service import DetectTypeService
+from services.dataset_format_service import DatasetFormatService
 from routes.auth import jwt_required
 from celery.result import AsyncResult
 
@@ -29,18 +31,21 @@ def create_dataset(user_id):
         # 将表单数据转换为 JSON 格式
         data = json.loads(request.form.to_dict()['data'])
         name = data['name']
-        detect_types = list(data['detect_types'])
-        dataset_format = list(data['dataset_format'])
-        dataset_format = [d.lower() for d in dataset_format]
+        detect_type_id = data['detectType']
+        dataset_format = list(data['datasetFormat'])
         description = data['description']
-        r_label_file = [d['name'] for d in data['label_file']][-1]
-        r_image_list = [d['name'] for d in data['image_list']]
+        r_label_file = [d['name'] for d in data['labelFile']][-1]
+        r_image_list = [d['name'] for d in data['imageList']]
         save_key = str(uuid.uuid4())
-        valid_images = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format,
-                                      detect_types, r_image_list, label_file, image_files)
+        dataset_format_data = [DatasetFormatService.get_dataset_format(d) for d in dataset_format]
+        dataset_formats = [d.name.lower() for d in dataset_format_data]
+        detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
+        detect_type = detect_type_data.tag_name.lower()
         
+        valid_images = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
+                                      detect_type, r_image_list, label_file, image_files)
         result = DatasetService\
-                .create_dataset(ObjectId(user_id), name, description, detect_types, 
+                .create_dataset(user_id, name, description, detect_type_id, 
                                                r_label_file, r_image_list, valid_images, 
                                                save_key, dataset_format)
         if not result:
@@ -114,9 +119,11 @@ def vis_dataset(user_id, dataset_id):
         label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
         image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
         vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
-        detect_types = dataset.detect_types
-        draw_masks = True if 'seg' in detect_types else False
-        draw_bboxes = True if 'det' in detect_types else False
+        detect_type_id = dataset.detect_type_id
+        detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
+        detect_type = detect_type_data.tag_name.lower()
+        draw_masks = True if 'seg' in detect_type else False
+        draw_bboxes = True if 'det' in detect_type else False
         os.makedirs(vis_dir, exist_ok=True)
         
         task = draw_annotations_task.delay(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
@@ -143,6 +150,7 @@ def check_is_vis_dataset_existed(user_id, dataset_id):
     files = [] 
     msg = 'Dataset visualization directory dose not exist.'
     try:
+        print('===>', dataset_id)
         dataset = DatasetService.get_dataset(dataset_id)
         if not dataset:
             raise ValueError("Dataset not found")
