@@ -454,6 +454,14 @@ class DatasetFormat:
         dataset_format._id = format_data['_id']
         return dataset_format
 
+    def to_dict(self):
+        return dict(
+            _id=str(self._id),
+            name=self.name,
+            description=self.description,
+            created_at=self.created_at
+        )
+
     def save(self):
         try:
             mongo.db.dataset_formats.insert_one({
@@ -507,14 +515,23 @@ class TrainingFramework:
             created_at=framework_data['created_at'],
             description=framework_data['description'],
         )
-        training_framework._id = training_framework['_id']
+        training_framework._id = framework_data['_id']
         return training_framework
+    
+    def to_dict(self):
+        return dict(
+            _id=str(self.id),
+            name=self.name,
+            description=self.description,
+            dataset_format_id=self.dataset_format_id,
+            created_at=self.created_at
+        )
 
     def save(self):
         try:
             mongo.db.training_frameworks.insert_one({
                 'name': self.name,
-                'dataset_format_id': self.dataset_format_id,
+                'dataset_format_id': ObjectId(self.dataset_format_id),
                 'description': self.description,
                 'created_at': self.created_at,
             })
@@ -533,7 +550,8 @@ class TrainingFramework:
     @staticmethod
     def list_all():
         training_frameworks = mongo.db.training_frameworks.find()
-        return [DatasetFormat.from_dict(tf) for tf in training_frameworks]
+        return training_frameworks
+        # return [TrainingFramework.from_dict(tf) for tf in training_frameworks]
     
     def __repr__(self):
         repr_str = f"_id: {self._id}\n"
@@ -542,3 +560,70 @@ class TrainingFramework:
         repr_str += f"description: {self.description}\n"
         repr_str += f"created_at: {self.created_at}\n"
         return repr_str
+    
+# For creating configuration files
+class TrainingConfiguration:
+    def __init__(self, name, user_id, training_framework_id, description='', args_data={}, save_key=None, created_at=None, updated_at=None):
+        self._id = None
+        self.name = name
+        self.user_id = user_id
+        self.training_framework_id = training_framework_id
+        self.description = description
+        self.args_data = args_data
+        self.save_key = str(uuid.uuid4()) if not save_key else save_key
+        self.created_at = datetime.utcnow() if not created_at else created_at
+        self.updated_at = datetime.utcnow() if not updated_at else updated_at
+        
+    @staticmethod
+    def from_dict(config_data):
+        configuration = TrainingConfiguration(
+            name=config_data['name'],
+            user_id=config_data['user_id'],
+            training_framework_id=config_data['training_framework_id'],
+            args_data=config_data['args_data'],
+            save_key=config_data['save_key'],
+            created_at=config_data['created_at'],
+            description=config_data['description'],
+            updated_at=config_data['updated_at']
+        )
+        configuration._id = config_data['_id']
+        return configuration
+    
+    def save(self):
+        try:
+            mongo.db.training_configurations.insert_one({
+                'name': self.name,
+                'user_id': ObjectId(self.user_id),
+                'args_data': self.args_data,
+                'save_key': self.save_key,
+                'training_framework_id': ObjectId(self.training_framework_id),
+                'description': self.description,
+                'created_at': self.created_at,
+                'updated_at': self.updated_at
+            })
+            return True
+        except Exception as e:
+            print(e)
+        return False
+    
+    @staticmethod
+    def find_by_user(user_id):
+        try:
+            configs = list(mongo.db.training_configurations.find({'user_id': ObjectId(user_id)}))
+            return configs
+        except:
+            print(traceback.print_exc())
+            return False
+    
+    @staticmethod
+    def find_by_id(_id):
+        return mongo.db.training_configurations.find_one({'_id': ObjectId(_id)})
+    
+    @staticmethod
+    def delete(_id):
+        return mongo.db.training_configurations.delete_one({'_id': ObjectId(_id)})
+    
+    @staticmethod
+    def list_all():
+        training_configurations = mongo.db.training_configurations.find()
+        return training_configurations
