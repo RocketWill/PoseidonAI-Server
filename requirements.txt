@@ -8,3 +8,4 @@ tqdm
 opencv-python
 Flask-Celery-Helper
 celery[redis]
+celery==4.4.6
