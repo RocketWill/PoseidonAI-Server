@@ -14,12 +14,15 @@ from services.dataset_format_service import DatasetFormatService
 from routes.auth import jwt_required
 from celery.result import AsyncResult
 
+from app.config import Config
 from utils.dataset.create_datatset import create_dataset_helper
 from tasks.dataset import draw_annotations_task
 
 datasets_bp = Blueprint('dataset', __name__)
-dataset_raw_root = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/dataset_raw'
-static_folder = '/mnt/f/cy/workspace/EFC/PoseidonAI/data/static/dataset_visualization'
+dataset_raw_root = Config.DATASET_RAW_FOLDER
+dataset_visualization_root = os.path.join(Config.STATIC_FOLDER, 'dataset_visualization')
+os.makedirs(dataset_raw_root, exist_ok=True)
+os.makedirs(dataset_visualization_root, exist_ok=True)
 
 @datasets_bp.route('/create', methods=['POST'])
 @jwt_required
@@ -96,7 +99,7 @@ def delete_dataset(user_id, dataset_id):
             raise ValueError("刪除資料集失敗")
         save_key = dataset.save_key
         dataset_dir = os.path.join(dataset_raw_root, user_id, save_key)
-        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
+        vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
         if not os.path.exists(dataset_dir):
             raise ValueError("找不到資料集位置")
         if DatasetService.delete_dataset(dataset_id):
@@ -118,7 +121,7 @@ def vis_dataset(user_id, dataset_id):
             raise ValueError("Dataset not found")
         label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
         image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
-        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
+        vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
         detect_type_id = dataset.detect_type_id
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
         detect_type = detect_type_data.tag_name.lower()
@@ -150,11 +153,10 @@ def check_is_vis_dataset_existed(user_id, dataset_id):
     files = [] 
     msg = 'Dataset visualization directory dose not exist.'
     try:
-        print('===>', dataset_id)
         dataset = DatasetService.get_dataset(dataset_id)
         if not dataset:
             raise ValueError("Dataset not found")
-        vis_dir = os.path.join(static_folder, user_id, dataset.save_key)
+        vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
         if os.path.exists(vis_dir):
             exists = True
             files = glob.glob(os.path.join(vis_dir, "*"))
