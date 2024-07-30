@@ -657,3 +657,17 @@ class TrainingConfiguration:
     def list_all():
         training_configurations = mongo.db.training_configurations.find()
         return training_configurations
+    
+    @staticmethod
+    def find_by_user_and_training_framework(user_id, training_framework_id):
+        try:
+            configs = list(mongo.db.training_configurations.find(
+                {
+                    'user_id': ObjectId(user_id),
+                    'training_framework_id': ObjectId(training_framework_id)
+                }
+            ))
+            return configs
+        except:
+            print(traceback.print_exc())
+            return False

@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
 LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-07-28 13:37:39
+LastEditTime: 2024-07-30 20:36:34
 FilePath: /PoseidonAI-Server/routes/training_configurations.py
 Description: 
 
@@ -31,6 +31,22 @@ def get_training_frameworks_by_user(user_id):
     response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
     try:
         training_configs = TrainingConfigurationService.get_training_configurations_by_user(user_id)
+        response['results'] = training_configs
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+@training_configurations_bp.route('/findby/<training_framework_id>', methods=['GET'])
+@jwt_required
+def get_training_frameworks_by_user_and_framework_id(user_id, training_framework_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
+    try:
+        training_configs = TrainingConfigurationService\
+            .get_training_configurations_by_user_and_framework_id(
+                user_id, training_framework_id
+            )
         response['results'] = training_configs
     except Exception as e:
         response['code'] = 500

@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-07-28 13:36:41
+LastEditTime: 2024-07-30 20:35:03
 FilePath: /PoseidonAI-Server/services/training_configuration_service.py
 Description: 
 
@@ -72,3 +72,10 @@ class TrainingConfigurationService:
         config_dir = os.path.join(training_configurations_root, user_id, save_key)
         shutil.rmtree(config_dir)
         return TrainingConfiguration.delete(training_configuration_id)
+
+    @staticmethod
+    def get_training_configurations_by_user_and_framework_id(user_id, training_framework_id):
+        training_configs = TrainingConfiguration\
+            .find_by_user_and_training_framework(
+                user_id, training_framework_id)
+        return [format_data(d) for d in training_configs]
