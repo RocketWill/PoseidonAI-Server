@@ -205,9 +205,20 @@ class Dataset:
         except:
             return False
         
+    @staticmethod
+    def find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id):
+        try:
+            query = {
+                'user_id': ObjectId(user_id),
+                'dataset_format_ids': ObjectId(dataset_format_id),
+                'detect_type_id': ObjectId(detect_type_id)
+            }
+            return list(mongo.db.datasets.find(query))
+        except:
+            return False
 
 class TrainingTask:
-    def __init__(self, user_id, dataset_id, algorithm, task_type, path, status='等待中', logs=None, metrics=None):
+    def __init__(self, user_id, dataset_id, algorithm, task_type, path, status='pending', logs=None, metrics=None):
         self.user_id = user_id
         self.dataset_id = dataset_id
         self.algorithm = algorithm
@@ -340,8 +351,17 @@ class DetectType:
             description=detect_type_data['description'],
             created_at=detect_type_data['created_at'],
         )
-        detect_type._id = detect_type_data['_id']
+        detect_type._id = str(detect_type_data['_id'])
         return detect_type
+
+    def to_dict(self):
+        return dict(
+            _id=self._id,
+            name=self.name,
+            tag_name=self.tag_name,
+            description=self.description,
+            created_at=self.created_at
+        )
     
     def save(self):
         try:
@@ -401,6 +421,16 @@ class Algorithm:
         )
         algorithm._id = algorithm_data['_id']
         return algorithm
+    
+    def to_dict(self):
+        return dict(
+            _id=self._id,
+            name=self.name,
+            training_framework_id=self.training_framework_id,
+            detect_type_id=self.detect_type_id,
+            created_at=self.created_at,
+            description=self.description
+        )
 
     def save(self):
         try:
