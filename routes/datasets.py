@@ -43,7 +43,7 @@ def create_dataset(user_id):
         dataset_format_data = [DatasetFormatService.get_dataset_format(d) for d in dataset_format]
         dataset_formats = [d.name.lower() for d in dataset_format_data]
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
-        detect_type = detect_type_data.tag_name.lower()
+        detect_type = detect_type_data['tag_name'].lower()
         
         valid_images = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
                                       detect_type, r_image_list, label_file, image_files)
@@ -167,3 +167,18 @@ def check_is_vis_dataset_existed(user_id, dataset_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'error', 'results': { 'exists': exists, 'files': files }}), 200
+    
+@datasets_bp.route('/findby/<dataset_format_id>/<detect_type_id>', methods=['GET'])
+@jwt_required
+def find_by_format_detect_type(user_id, dataset_format_id, detect_type_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': {}}
+    try:
+        datasets = DatasetService.\
+            find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id)
+        response['results'] = datasets
+        return jsonify(response), 200
+    except Exception as e:
+        traceback.print_exc()
+        response['msg'] = str(e)
+        response['code'] = 500
+        return jsonify(response), 200
