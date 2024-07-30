@@ -1,3 +1,10 @@
+'''
+Author: Will Cheng (will.cheng@efctw.com)
+Date: 2024-07-29 08:28:38
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-07-30 09:03:55
+FilePath: /PoseidonAI-Server/routes/detect_types.py
+'''
 import os
 from bson import ObjectId
 import traceback
@@ -12,16 +19,7 @@ def get_detect_types():
     response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
     try:
         detect_types = DetectTypeService.get_detect_types()
-        results = []
-        for detect_type in detect_types:
-            results.append({
-                '_id': str(detect_type._id),
-                'name': detect_type.name,
-                'tag_name': detect_type.tag_name,
-                'description': detect_type.description,
-                'created_at': detect_type.created_at
-            })
-        response['results'] = results
+        response['results'] = detect_types
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
