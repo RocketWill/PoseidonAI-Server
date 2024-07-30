@@ -1,3 +1,10 @@
+'''
+Author: Will Cheng (will.cheng@efctw.com)
+Date: 2024-07-29 08:28:38
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-07-30 08:59:16
+FilePath: /PoseidonAI-Server/services/detect_type_service.py
+'''
 from app.models import DetectType
 
 class DetectTypeService:
@@ -9,11 +16,11 @@ class DetectTypeService:
 
     @staticmethod
     def get_detect_type(detect_type_id):
-        return DetectType.find_by_id(detect_type_id)
+        return DetectType.find_by_id(detect_type_id).to_dict()
 
     @staticmethod
     def get_detect_types():
-        return DetectType.list_all()
+        return [d.to_dict() for d in DetectType.list_all()]
 
     @staticmethod
     def delete_detect_type(detect_type_id):
