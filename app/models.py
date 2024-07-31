@@ -152,6 +152,21 @@ class Dataset:
         )
         user._id = dataset_data['_id']
         return user
+    
+    def to_dict(self):
+        return dict(
+            _id=self._id,
+            user_id=self.user_id,
+            name=self.name,
+            description=self.description,
+            created_at=self.created_at,
+            detect_type_id=self.detect_type_id,
+            label_file=self.label_file,
+            image_files=self.image_files,
+            valid_images_num=self.valid_images_num,
+            dataset_format_ids=self.dataset_format_ids,
+            save_key=self.save_key
+        )
 
     @staticmethod
     def find_by_id(dataset_id):
@@ -169,11 +184,6 @@ class Dataset:
         # 根据用户 ID 查询该用户上传的所有数据集信息
         try:
             datasets = list(mongo.db.datasets.find({'user_id': ObjectId(user_id)}))
-            for dataset in datasets:
-                dataset['_id'] = str(dataset['_id'])
-                dataset['user_id'] = str(dataset['user_id'])
-                dataset['dataset_format_ids'] = [str(d) for d in dataset['dataset_format_ids']]
-                dataset['detect_type_id'] = str(dataset['detect_type_id'])
             return datasets
         except:
             print(traceback.print_exc())

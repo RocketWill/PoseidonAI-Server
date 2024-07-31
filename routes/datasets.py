@@ -68,8 +68,15 @@ def get_dataset(dataset_id):
 @datasets_bp.route('/user', methods=['GET'])
 @jwt_required
 def get_datasets_by_user(user_id):
-    datasets = DatasetService.get_datasets_by_user(user_id)
-    return jsonify(datasets), 200
+    try:
+        response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
+        datasets = DatasetService.get_datasets_by_user_v2(user_id)
+        response['results'] = datasets
+    except Exception as e:
+        traceback.print_exc()
+        response['code'] = 500
+        response['msg'] = str(e)
+    return jsonify(response), 200
 
 @datasets_bp.route('/datasets/<dataset_id>', methods=['PUT'])
 def update_dataset(dataset_id):

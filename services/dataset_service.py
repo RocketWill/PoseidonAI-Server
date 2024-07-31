@@ -7,6 +7,17 @@ from .detect_type_service import DetectTypeService
 from .dataset_format_service import DatasetFormatService
 
 
+def format_data(data):
+    data['_id'] = str(data['_id'])
+    data['user_id'] = str(data['user_id'])
+    data['detect_type_id'] = str(data['detect_type_id'])
+    data['dataset_format_ids'] = [str(d) for d in data['dataset_format_ids']]
+    dataset_format_data = [DatasetFormatService.get_dataset_format(d).to_dict() for d in data['dataset_format_ids']]
+    detect_type_data = DetectTypeService.get_detect_type(data['detect_type_id'])
+    data['dataset_format'] = dataset_format_data
+    data['detect_type'] = detect_type_data
+    return data
+
 class DatasetService:
     @staticmethod
     def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids):
@@ -20,7 +31,7 @@ class DatasetService:
 
     @staticmethod
     def get_datasets_by_user(user_id):
-        return Dataset.find_by_user(user_id)
+        return [format_data(d) for d in Dataset.find_by_user(user_id)]
 
     @staticmethod
     def update_dataset(dataset_id, name, description, save_key):
@@ -33,6 +44,11 @@ class DatasetService:
     @staticmethod
     def delete_dataset(dataset_id):
         return Dataset.delete(dataset_id)
+    
+    @staticmethod
+    def get_datasets_by_user_v2(dataset_id):
+        results = Dataset.find_by_user(dataset_id)
+        return [format_data(d) for d in results]
 
     @staticmethod
     def find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id):
