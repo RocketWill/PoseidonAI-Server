@@ -52,29 +52,32 @@ class DatasetService:
 
     @staticmethod
     def find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id):
-        def handle_dataset_format():
-            data = DatasetFormatService.get_dataset_format(dataset_format_id).to_dict()
-            return dict(
-                name=data['name']
-            )
-        def handle_detect_type():
-            data = DetectTypeService.get_detect_type(detect_type_id)
-            return dict(
-                name=data['name'],
-                tag_name=data['tag_name']
-            )
-        def handle_datasets(data):
-            return dict(
-                _id=str(data['_id']),
-                name=data['name'],
-                description=data['description'],
-                valid_images_num=data['valid_images_num'],
-                created_at=data['created_at']
-            )
+        # def handle_dataset_format():
+        #     data = DatasetFormatService.get_dataset_format(dataset_format_id).to_dict()
+        #     return dict(
+        #         name=data['name']
+        #     )
+        # def handle_detect_type():
+        #     data = DetectTypeService.get_detect_type(detect_type_id)
+        #     return dict(
+        #         name=data['name'],
+        #         tag_name=data['tag_name']
+        #     )
+        # def handle_datasets(data):
+        #     return dict(
+        #         _id=str(data['_id']),
+        #         name=data['name'],
+        #         description=data['description'],
+        #         valid_images_num=data['valid_images_num'],
+        #         created_at=data['created_at']
+        #     )
         datasets = Dataset.find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id)
-        results = dict(
-            datasets=[handle_datasets(d) for d in datasets],
-            detect_type=handle_detect_type(),
-            dataset_format=handle_dataset_format()
-        )
+        results = [format_data(d) for d in datasets]
+        # results = dict(
+        #     # datasets=[handle_datasets(d) for d in datasets],
+        #     datasets=[format_data(d) for d in datasets],
+        #     detect_type=handle_detect_type(),
+        #     dataset_format=handle_dataset_format()
+        # )
+        # return results
         return results

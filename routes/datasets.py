@@ -131,7 +131,7 @@ def vis_dataset(user_id, dataset_id):
         vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
         detect_type_id = dataset.detect_type_id
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
-        detect_type = detect_type_data.tag_name.lower()
+        detect_type = detect_type_data['tag_name'].lower()
         draw_masks = True if 'seg' in detect_type else False
         draw_bboxes = True if 'det' in detect_type else False
         os.makedirs(vis_dir, exist_ok=True)
