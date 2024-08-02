@@ -228,29 +228,33 @@ class Dataset:
             return False
 
 class TrainingTask:
-    def __init__(self, user_id, dataset_id, algorithm, task_type, path, status='pending', logs=None, metrics=None):
+    def __init__(self, name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epoch, gpu_id, save_key, description=''):
         self.user_id = user_id
+        self.name = name
+        self.algorithm_id = algorithm_id
         self.dataset_id = dataset_id
-        self.algorithm = algorithm
-        self.task_type = task_type
-        self.path = path
-        self.status = status
-        self.created_at = datetime.utcnow()  # 任务创建时间
-        self.logs = logs if logs else []
-        self.metrics = metrics if metrics else {}
+        self.training_configuration_id = training_configuration_id
+        self.model_name = model_name
+        self.epoch = epoch
+        self.gpu_id = gpu_id
+        self.description = description
+        self.save_key = save_key
+        self.created_at = datetime.utcnow()
 
     def save(self):
         # 将训练任务信息存储到 MongoDB 中的 training_tasks 集合
         mongo.db.training_tasks.insert_one({
+            'name': self.name,
+            'description': self.description,
             'user_id': self.user_id,
             'dataset_id': self.dataset_id,
-            'algorithm': self.algorithm,
-            'task_type': self.task_type,
-            'path': self.path,
-            'status': self.status,
-            'created_at': self.created_at,
-            'logs': self.logs,
-            'metrics': self.metrics
+            'algorithm_id': self.algorithm_id,
+            'training_configuration_id': self.training_configuration_id,
+            'model_name': self.model_name,
+            'epoch': self.epoch,
+            'gpu_id': self.gpu_id,
+            'save_key': self.save_key,
+            'created_at': self.created_at
         })
 
     @staticmethod
@@ -269,22 +273,6 @@ class TrainingTask:
         mongo.db.training_tasks.update_one(
             {'_id': self.task_id},
             {'$set': {'status': self.status}}
-        )
-
-    def add_log(self, log_entry):
-        # 添加训练日志
-        self.logs.append(log_entry)
-        mongo.db.training_tasks.update_one(
-            {'_id': self.task_id},
-            {'$push': {'logs': log_entry}}
-        )
-
-    def add_metrics(self, metrics_dict):
-        # 添加训练指标
-        self.metrics.update(metrics_dict)
-        mongo.db.training_tasks.update_one(
-            {'_id': self.task_id},
-            {'$set': {'metrics': self.metrics}}
         )
 
     def delete(self):

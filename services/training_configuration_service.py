@@ -51,7 +51,7 @@ class TrainingConfigurationService:
 
     @staticmethod
     def get_training_configuration(training_configuration_id):
-        training_config = TrainingFramework.find_by_id(training_configuration_id)
+        training_config = TrainingConfiguration.find_by_id(training_configuration_id)
         return format_data(training_config)
 
     @staticmethod
