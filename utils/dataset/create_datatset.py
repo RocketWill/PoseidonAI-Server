@@ -1,8 +1,19 @@
+'''
+Author: Will Cheng chengyong@pku.edu.cn
+Date: 2024-08-05 19:04:56
+LastEditors: Will Cheng chengyong@pku.edu.cn
+LastEditTime: 2024-08-05 19:20:42
+FilePath: /PoseidonAI-Server/utils/dataset/create_datatset.py
+Description: 
+
+Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved. 
+'''
 import os
 import json
 
 from .tools.verify_coco_format import validate_coco_format, find_valid_images
 from .tools.coco2yolo import convert_coco_json
+from utils.common import remove_unannotated_images
 
 def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, detect_type, r_image_list, label_file, image_files):
     output_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
@@ -29,6 +40,7 @@ def create_coco(output_coco_dir, output_image_dir, r_image_list, label_file, ima
         json_data = f.read()
     # 验证格式
     valid, coco_data = validate_coco_format(json_data)
+    coco_data = remove_unannotated_images(coco_data)
     if valid:
         valid_images = find_valid_images(r_image_list, coco_data)
     else:

@@ -8,7 +8,7 @@ import time
 from celery import task
 
 from app.models import TrainingTask
-from utils.common import read_json, write_json, write_yaml
+from utils.common import read_json, write_json, write_yaml, remove_unannotated_images
 
 
 progress_steps = [
@@ -176,15 +176,6 @@ def split_coco_dataset(coco_data, val_size):
     val_coco_data['images'] = val_images
     val_coco_data['annotations'] = val_annotations
     return train_coco_data, val_coco_data
-
-def remove_unannotated_images(coco_annotation_file):
-    coco_data = read_json(coco_annotation_file)
-    annotated_image_ids = {ann['image_id'] for ann in coco_data['annotations']}
-    annotated_images = [img for img in coco_data['images'] if img['id'] in annotated_image_ids]
-    coco_data['images'] = annotated_images
-    annotated_annotations = [ann for ann in coco_data['annotations'] if ann['image_id'] in annotated_image_ids]
-    coco_data['annotations'] = annotated_annotations
-    return coco_data
 
 def copy_images_to_train_val_dirs(image_files, train_data, val_data, train_dir, val_dir):
     """
