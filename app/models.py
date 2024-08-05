@@ -103,7 +103,7 @@ class User:
 
 
 class Dataset:
-    def __init__(self, user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, created_at=None):
+    def __init__(self, user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names=[], created_at=None):
         self._id = None
         self.user_id = user_id
         self.name = name
@@ -115,6 +115,7 @@ class Dataset:
         self.image_files = image_files  # 数据集文件的路径或存储信息
         self.label_file = label_file
         self.save_key = save_key
+        self.class_names = class_names
 
     def save(self):
         # 将数据集信息存储到 MongoDB 中的 datasets 集合
@@ -130,6 +131,7 @@ class Dataset:
                 'label_file': self.label_file,
                 'valid_images_num': self.valid_images_num,
                 'save_key': self.save_key,
+                'class_names': self.class_names
             })
             return True
         except Exception as e:
@@ -148,7 +150,8 @@ class Dataset:
             image_files=dataset_data['image_files'],
             valid_images_num=dataset_data['valid_images_num'],
             dataset_format_ids=dataset_data['dataset_format_ids'],
-            save_key=dataset_data['save_key']
+            save_key=dataset_data['save_key'],
+            class_names=dataset_data['class_names']
         )
         user._id = dataset_data['_id']
         return user
@@ -165,7 +168,8 @@ class Dataset:
             image_files=self.image_files,
             valid_images_num=self.valid_images_num,
             dataset_format_ids=self.dataset_format_ids,
-            save_key=self.save_key
+            save_key=self.save_key,
+            class_names=self.class_names
         )
 
     @staticmethod
@@ -228,7 +232,7 @@ class Dataset:
             return False
 
 class TrainingTask:
-    def __init__(self, name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epoch, gpu_id, save_key, description=''):
+    def __init__(self, name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epoch, val_ratio, gpu_id, save_key, train_val_num=[], description=''):
         self.user_id = user_id
         self.name = name
         self.algorithm_id = algorithm_id
@@ -239,6 +243,8 @@ class TrainingTask:
         self.gpu_id = gpu_id
         self.description = description
         self.save_key = save_key
+        self.val_ratio = val_ratio
+        self.train_val_num = train_val_num
         self.created_at = datetime.utcnow()
 
     def save(self):
@@ -252,8 +258,10 @@ class TrainingTask:
             'training_configuration_id': self.training_configuration_id,
             'model_name': self.model_name,
             'epoch': self.epoch,
+            'val_ratio': self.val_ratio,
             'gpu_id': self.gpu_id,
             'save_key': self.save_key,
+            'train_val_num': self.train_val_num,
             'created_at': self.created_at
         })
 

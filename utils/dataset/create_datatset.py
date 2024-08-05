@@ -1,4 +1,5 @@
 import os
+import json
 
 from .tools.verify_coco_format import validate_coco_format, find_valid_images
 from .tools.coco2yolo import convert_coco_json
@@ -6,6 +7,7 @@ from .tools.coco2yolo import convert_coco_json
 def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, detect_type, r_image_list, label_file, image_files):
     output_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
     output_coco_dir = os.path.join(dataset_raw_root, user_id, save_key, 'mscoco')
+    coco_label_file = os.path.join(output_coco_dir, label_file.filename)
     valid_coco_images = create_coco(output_coco_dir, output_image_dir, r_image_list, label_file, image_files)
     if 'yolo' in dataset_format:
         output_yolo_dir = os.path.join(dataset_raw_root, user_id, save_key, 'yolo')
@@ -15,8 +17,8 @@ def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, d
         valid_yolo_images = create_yolo(label_file, output_yolo_dir, use_segments, use_keypoints)
         if len(valid_coco_images) != valid_yolo_images:
             print('valid images are different, coco: {}, yolo: {}.'.format(len(valid_coco_images), valid_yolo_images))
-        return min(len(valid_coco_images), valid_yolo_images)
-    return len(valid_coco_images)
+        return min(len(valid_coco_images), valid_yolo_images), get_class_names(coco_label_file)
+    return len(valid_coco_images), get_class_names(coco_label_file)
             
 def create_coco(output_coco_dir, output_image_dir, r_image_list, label_file, image_files):
     os.makedirs(output_coco_dir, exist_ok=True)
@@ -40,3 +42,12 @@ def create_coco(output_coco_dir, output_image_dir, r_image_list, label_file, ima
 
 def create_yolo(label_file, output_labels_dir, use_segments, use_keypoints):
     return convert_coco_json(label_file, output_labels_dir, use_segments, use_keypoints, cls91to80=False)
+
+def get_class_names(coco_label_file):
+    print(coco_label_file)
+    with open(coco_label_file, 'r') as f:
+        json_str = f.read()
+        data = json.loads(json_str)
+    # Extract class names from the 'categories' field
+    class_names = [category['name'] for category in data['categories']]
+    return class_names

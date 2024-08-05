@@ -45,12 +45,12 @@ def create_dataset(user_id):
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
         detect_type = detect_type_data['tag_name'].lower()
         
-        valid_images = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
+        valid_images, class_names = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
                                       detect_type, r_image_list, label_file, image_files)
         result = DatasetService\
                 .create_dataset(user_id, name, description, detect_type_id, 
                                                r_label_file, r_image_list, valid_images, 
-                                               save_key, dataset_format)
+                                               save_key, dataset_format, class_names)
         if not result:
             raise ValueError('保存資料集錯誤')
         return jsonify({ 'code': 200, 'show_msg': 'ok', 'msg': 'ok', 'results': None }), 200

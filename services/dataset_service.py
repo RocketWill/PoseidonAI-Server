@@ -20,8 +20,8 @@ def format_data(data):
 
 class DatasetService:
     @staticmethod
-    def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids):
-        dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids)
+    def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names):
+        dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names)
         result = dataset.save()
         return result
 
