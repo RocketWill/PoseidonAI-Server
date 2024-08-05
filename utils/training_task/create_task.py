@@ -1,18 +1,114 @@
-'''
-Author: Will Cheng (will.cheng@efctw.com)
-Date: 2024-08-02 14:09:31
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-04 20:46:37
-FilePath: /PoseidonAI-Server/utils/training_task/create_task.py
-'''
 import os
 import glob
 import shutil
 import random
 import copy
+import time
 
+from celery import task
+
+from app.models import TrainingTask
 from utils.common import read_json, write_json, write_yaml
 
+
+progress_steps = [
+    'Starting task',
+    'Preparing task',
+    'Reading COCO label file',
+    'Splitting dataset',
+    'Writing dataset and config files',
+    'Task preparation complete',
+    'Finishing task'
+]
+
+@task(bind=True, name='tasks.create.task')
+def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir,
+                name, user_id, algorithm_id, dataset_id, training_configuration_id, save_key, description):
+    total_steps = 7  # 进度总步数
+    current_step = 0
+
+    def update_progress(step, description):
+        nonlocal current_step
+        current_step += step
+        self.update_state(state='PROGRESS', meta={'current': current_step, 'total': total_steps, 'description': description, 'steps': progress_steps})
+
+    update_progress(1, 'Starting task')
+    time.sleep(3)
+
+    if training_framework_name == 'YOLOv8':
+        update_progress(1, 'Preparing task')
+        time.sleep(3)
+        [train_num, val_num] = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
+    elif training_framework_name == 'Detectron2-InstanceSegmentation':
+        update_progress(1, 'Preparing task')
+        time.sleep(3)
+        [train_num, val_num] = create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
+    else:
+        raise NotImplementedError
+
+    task = TrainingTask(name, user_id, algorithm_id, dataset_id, training_configuration_id, model, epochs, val_ratio, gpu_id, save_key, [train_num, val_num], description)
+    task.save()
+    update_progress(1, 'Finishing task')
+    time.sleep(2)
+
+    return {'train_num': train_num, 'val_num': val_num}
+
+def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
+    update_progress(1, 'Reading COCO label file')
+    time.sleep(3)
+    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
+    class_names = get_class_names(coco_label_file)
+
+    update_progress(1, 'Splitting dataset')
+    time.sleep(3)
+    dataset_file_content, [train_num, val_num] = split_yolov8_dataset(dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data'))
+
+    update_progress(1, 'Writing dataset and config files')
+    time.sleep(3)
+    dataset_file = os.path.join(project_dir, 'dataset.yaml')
+    cfg_file = os.path.join(project_dir, 'cfg.yaml')
+    tarining_args = read_json(args_file)
+    task_dir = os.path.join(project_dir, 'project')
+    tarining_args.update(
+        {
+            'epochs': int(epochs), 
+            'device': 'cuda:{}'.format(int(gpu_id)), 
+            'project': task_dir,
+            'model': model,
+            'data': dataset_file,
+            'mask_ratio': int(tarining_args['mask_ratio'])
+        }
+    )
+    write_yaml(dataset_file_content, dataset_file)
+    write_yaml(tarining_args, cfg_file)
+
+    update_progress(1, 'Task preparation complete.')
+    time.sleep(3)
+    return [train_num, val_num]
+
+def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
+    update_progress(1, 'Reading COCO label file')
+    time.sleep(3)
+    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
+
+    update_progress(1, 'Splitting dataset')
+    time.sleep(3)
+    train_num, val_num = split_d2_dataset(dataset_dir, val_ratio, os.path.join(project_dir, 'data'))
+
+    update_progress(1, 'Writing dataset and config files')
+    time.sleep(3)
+    cfg_file = os.path.join(project_dir, 'cfg.yaml')
+    tarining_args = read_json(args_file)
+    task_dir = os.path.join(project_dir, 'project')
+    tarining_args.update({'SOLVER_MAX_ITER': epochs, 'DATASETS_TRAIN': ['train_dataset'], 'DATASETS_TEST': ['val_dataset'] if val_num else []})
+    training_args_yaml = d2_dict_to_yaml(tarining_args)
+    training_args_yaml.update({'OUTPUT_DIR': task_dir})
+    training_args_yaml['MODEL']['DEVICE'] = 'cuda:{}'.format(gpu_id)
+    write_yaml(training_args_yaml, cfg_file)
+
+    update_progress(1, 'Task preparation complete.')
+    time.sleep(3)
+    return [train_num, val_num]
 
 def get_class_names(coco_label_file):
     data = read_json(coco_label_file)
@@ -51,31 +147,7 @@ def split_yolov8_dataset(dataset_dir, val_ratio, class_names, output_dir):
         val='images/val' if val_image_num else '', # val images (relative to 'path') 4 images
         test='',
         names=class_names
-    )
-        
-
-def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir):
-    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
-    class_names = get_class_names(coco_label_file)
-    dataset_file = os.path.join(project_dir, 'dataset.yaml')
-    cfg_file = os.path.join(project_dir, 'cfg.yaml')
-    cfg_file_json = os.path.join(project_dir, 'cfg.json')
-    tarining_args = read_json(args_file)
-    task_dir = os.path.join(project_dir, 'project')
-    tarining_args.update(
-        {
-            'epochs': int(epochs), 
-            'device': 'cuda:{}'.format(int(gpu_id)), 
-            'project': task_dir,
-            'model': model,
-            'data': dataset_file,
-            'mask_ratio': int(tarining_args['mask_ratio'])
-        }
-    )
-    dataset_file_content = split_yolov8_dataset(dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data'))
-    write_yaml(dataset_file_content, dataset_file)
-    write_yaml(tarining_args, cfg_file)
-    write_json(tarining_args, cfg_file_json)
+    ), [len(train_pairs), len(val_pairs)]
 
 def split_coco_dataset(coco_data, val_size):
     # 确保val_size不超过图像总数
@@ -157,6 +229,7 @@ def split_d2_dataset(dataset_dir, val_ratio, output_dir):
     write_json(train_coco_data, train_data_file)
     write_json(val_coco_data, val_data_file)
     copy_images_to_train_val_dirs(image_files, train_coco_data, val_coco_data, train_dir, val_dir)
+    return len(train_coco_data['images']), len(val_coco_data['images'])
 
 def d2_dict_to_yaml(data):
     yaml_structure = {
@@ -217,31 +290,3 @@ def d2_dict_to_yaml(data):
     }
     return yaml_structure
 
-
-def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir):
-    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
-    class_names = get_class_names(coco_label_file)
-    dataset_file = os.path.join(project_dir, 'dataset.yaml')
-    cfg_file = os.path.join(project_dir, 'cfg.yaml')
-    cfg_file_json = os.path.join(project_dir, 'cfg.json')
-    tarining_args = read_json(args_file)
-    task_dir = os.path.join(project_dir, 'project')
-    tarining_args.update({'SOLVER_MAX_ITER': epochs, 'DATASETS_TRAIN': ['train_dataset'], 'DATASETS_TEST': ['val_dataset']})
-    training_args_yaml = d2_dict_to_yaml(tarining_args)
-    split_d2_dataset(dataset_dir, val_ratio, os.path.join(project_dir, 'data'))
-    training_args_yaml.update({'OUTPUT_DIR': task_dir})
-    training_args_yaml['MODEL']['DEVICE'] = 'cuda:{}'.format(gpu_id)
-    write_yaml(training_args_yaml, cfg_file)
-    # training_args_yaml.update({ 'gpu_id': gpu_id })
-    # write_json(training_args_yaml, cfg_file_json)
-    
-if __name__ == '__main__':
-    # args_file = '/Users/will/workspace/EFC/PoseidonAI-Server/data/configs/66a0c88e791831cbf7f535c1/9faa066c-a339-4bca-a660-075f19655053/args.json'
-    args_file = '/Users/will/workspace/EFC/PoseidonAI-Server/data/configs/66a0c88e791831cbf7f535c1/6c132027-ddbc-4947-8d71-d630464510b1/args.json'
-    epochs = 10
-    gpu_id = 0
-    val_ratio = 0.2
-    dataset_dir = '/Users/will/workspace/EFC/PoseidonAI-Server/data/dataset_raw/66a0c88e791831cbf7f535c1/011ce856-7f27-4188-ab0b-dbb624c5dd5c'
-    project_dir = '/Users/will/workspace/EFC/PoseidonAI-Server/utils/training_task/test_output_d2'
-    model = 'yolov8m.yaml'
-    create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir)
