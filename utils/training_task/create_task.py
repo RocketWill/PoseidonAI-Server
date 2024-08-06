@@ -33,15 +33,15 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
         self.update_state(state='PROGRESS', meta={'current': current_step, 'total': total_steps, 'description': description, 'steps': progress_steps})
 
     update_progress(1, 'Starting task')
-    time.sleep(3)
+    time.sleep(1)
 
     if training_framework_name == 'YOLOv8':
         update_progress(1, 'Preparing task')
-        time.sleep(3)
+        time.sleep(1)
         [train_num, val_num] = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
     elif training_framework_name == 'Detectron2-InstanceSegmentation':
         update_progress(1, 'Preparing task')
-        time.sleep(3)
+        time.sleep(1)
         [train_num, val_num] = create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
     else:
         raise NotImplementedError
@@ -55,16 +55,16 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
 
 def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
     update_progress(1, 'Reading COCO label file')
-    time.sleep(3)
+    time.sleep(1)
     coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
     class_names = get_class_names(coco_label_file)
 
     update_progress(1, 'Splitting dataset')
-    time.sleep(3)
+    time.sleep(1)
     dataset_file_content, [train_num, val_num] = split_yolov8_dataset(dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data'))
 
     update_progress(1, 'Writing dataset and config files')
-    time.sleep(3)
+    time.sleep(1)
     dataset_file = os.path.join(project_dir, 'dataset.yaml')
     cfg_file = os.path.join(project_dir, 'cfg.yaml')
     tarining_args = read_json(args_file)
@@ -83,20 +83,20 @@ def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model,
     write_yaml(tarining_args, cfg_file)
 
     update_progress(1, 'Task preparation complete.')
-    time.sleep(3)
+    time.sleep(1)
     return [train_num, val_num]
 
 def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
     update_progress(1, 'Reading COCO label file')
-    time.sleep(3)
+    time.sleep(1)
     coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
 
     update_progress(1, 'Splitting dataset')
-    time.sleep(3)
+    time.sleep(1)
     train_num, val_num = split_d2_dataset(dataset_dir, val_ratio, os.path.join(project_dir, 'data'))
 
     update_progress(1, 'Writing dataset and config files')
-    time.sleep(3)
+    time.sleep(1)
     cfg_file = os.path.join(project_dir, 'cfg.yaml')
     tarining_args = read_json(args_file)
     task_dir = os.path.join(project_dir, 'project')
@@ -107,7 +107,7 @@ def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, 
     write_yaml(training_args_yaml, cfg_file)
 
     update_progress(1, 'Task preparation complete.')
-    time.sleep(3)
+    time.sleep(1)
     return [train_num, val_num]
 
 def get_class_names(coco_label_file):
@@ -140,6 +140,7 @@ def split_yolov8_dataset(dataset_dir, val_ratio, class_names, output_dir):
     for image_file, label_file in val_pairs:
         shutil.copy(image_file, val_images_dir)
         shutil.copy(label_file, val_labels_dir)
+    # handle_preview_image(train_pairs[0][0], os.path.join(output_dir, '..'))
         
     return dict(
         path=output_dir, # dataset root dir
@@ -205,6 +206,7 @@ def copy_images_to_train_val_dirs(image_files, train_data, val_data, train_dir, 
             shutil.copy(image_file, os.path.join(train_dir, image_name))
         elif image_name in val_image_ids:
             shutil.copy(image_file, os.path.join(val_dir, image_name))
+    # handle_preview_image(image_files[0], os.path.join(train_dir, '..', '..'))
 
 def split_d2_dataset(dataset_dir, val_ratio, output_dir):
     coco_dataset_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
@@ -280,4 +282,3 @@ def d2_dict_to_yaml(data):
     "VERSION": data["VERSION"]
     }
     return yaml_structure
-
