@@ -252,16 +252,17 @@ class TrainingTask:
         mongo.db.training_tasks.insert_one({
             'name': self.name,
             'description': self.description,
-            'user_id': self.user_id,
-            'dataset_id': self.dataset_id,
-            'algorithm_id': self.algorithm_id,
-            'training_configuration_id': self.training_configuration_id,
+            'user_id': ObjectId(self.user_id),
+            'dataset_id': ObjectId(self.dataset_id),
+            'algorithm_id': ObjectId(self.algorithm_id),
+            'training_configuration_id': ObjectId(self.training_configuration_id),
             'model_name': self.model_name,
             'epoch': self.epoch,
             'val_ratio': self.val_ratio,
             'gpu_id': self.gpu_id,
             'save_key': self.save_key,
             'train_val_num': self.train_val_num,
+            'status': 'IDLE',
             'created_at': self.created_at
         })
 
