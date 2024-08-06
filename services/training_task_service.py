@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-05 14:33:10
+LastEditTime: 2024-08-06 17:03:02
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -11,6 +11,9 @@ Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved.
 import os
 import uuid
 import shutil
+import glob
+
+import cv2
 
 from app.models import TrainingTask
 from app.config import Config
@@ -22,7 +25,30 @@ from utils.training_task.create_task import create_task
 training_project_root = Config.TRAINING_PROJECT_FOLDER
 training_configurations_root = Config.TRAINING_CONFIGS_FOLDER
 dataset_root = Config.DATASET_RAW_FOLDER
+project_preview_root = Config.PROJECT_PRVIEW_IMAGE_FOLDER
 os.makedirs(training_project_root, exist_ok=True)
+os.makedirs(project_preview_root, exist_ok=True)
+
+
+def handle_preview_image(image_file, output_file):
+    preview_image = cv2.imread(image_file)
+    original_height, original_width = preview_image.shape[:2]
+    target_width = 256
+    target_height = int((target_width / original_width) * original_height)
+    preview_image = cv2.resize(preview_image, (target_width, target_height), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(output_file, preview_image)
+
+    return output_file
+
+def format_data(data):
+    data['_id'] = str(data['_id'])
+    data['user_id'] = str(data['user_id'])
+    data['dataset_id'] = str(data['dataset_id'])
+    data['algorithm_id'] = str(data['algorithm_id'])
+    data['training_configuration_id'] = str(data['training_configuration_id'])
+    algorithm_data = AlgorithmService.get_algorithm(data['algorithm_id'])
+    data['algorithm'] = algorithm_data
+    return data
 
 class TrainingTaskService:
     @staticmethod
@@ -38,6 +64,14 @@ class TrainingTaskService:
         os.makedirs(project_dir, exist_ok=True)
         if not os.path.exists(config_file):
             raise FileExistsError(config_file)
+        
+        # save preview image
+        image_file = glob.glob(os.path.join(dataset_dir, 'images', '*'))[0]
+        output_dir = os.path.join(project_preview_root, user_id, save_key)
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, 'preview.jpg')
+        handle_preview_image(image_file, output_file)
+
         task = create_task.apply_async(args=[
             training_framework_name, config_file, epochs, gpu_id, val_ratio, dataset_dir,
             model_name, project_dir,
@@ -80,37 +114,27 @@ class TrainingTaskService:
                 'steps': []
             }
         return response
-        # [train_num, val_num] = create_task(training_framework_name, config_file, epochs, gpu_id, val_ratio, dataset_dir, model_name, project_dir)
-        # task = TrainingTask(name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epochs, val_ratio, gpu_id, save_key, [train_num, val_num], description)
-        # return task.save()
-        # print('='*50)
-        # print(dataset_data)
-        # print('='*50)
-        # print(training_configuration_data)
-        # print('='*50)
-    # @staticmethod
-    # def get_training_configuration(training_configuration_id):
-    #     training_config = TrainingFramework.find_by_id(training_configuration_id)
-    #     return format_data(training_config)
-
-    # @staticmethod
-    # def get_training_configurations():
-    #     training_configs = TrainingConfiguration.list_all()
-    #     return [format_data(d) for d in training_configs]
     
-    # @staticmethod
-    # def get_training_configurations_by_user(user_id):
-    #     training_configs = TrainingConfiguration.find_by_user(user_id)
-    #     return [format_data(d) for d in training_configs]
+    @staticmethod
+    def get_tasks_by_user_id(user_id):
+        task_list = TrainingTask.find_by_user(user_id)
+        return [format_data(d) for d in task_list]
 
-    # @staticmethod
-    # def delete_training_configuration(training_configuration_id):
-    #     ...
+    @staticmethod
+    def get_task_by_id(task_id):
+        task = TrainingTask.find_by_id(task_id)
+        return(format_data(task))
+
 
 if __name__ == '__main__':
     name = '123'
     user_id = '66a6eb9d4c0e8525ee44c787'
-    algorithm_id = '66a74cf1c96399a9ff514d6f'
-    tr_id = '66a75082087af8b1a7a0b761'
-    data_id = '66aaf5faaff932a6d4c715e6'
-    x = TrainingTaskService.create_training_task(name, user_id, algorithm_id, data_id, tr_id, 2,3,4,5,6)
+    task_id = '66b1cae649e4f0ffffe3ab1a'
+    # algorithm_id = '66a74cf1c96399a9ff514d6f'
+    # tr_id = '66a75082087af8b1a7a0b761'
+    # data_id = '66aaf5faaff932a6d4c715e6'
+    # x = TrainingTaskService.create_training_task(name, user_id, algorithm_id, data_id, tr_id, 2,3,4,5,6)
+    x = TrainingTaskService.get_task_by_id(task_id)
+    import pprint
+
+    pprint.pprint(x)
