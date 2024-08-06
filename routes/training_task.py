@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-05 14:25:52
+LastEditTime: 2024-08-06 16:09:07
 FilePath: /PoseidonAI-Server/routes/training_task.py
 Description: 
 
@@ -42,7 +42,6 @@ def create_training_task(user_id):
         save_key = str(uuid.uuid4())
         task_id = TrainingTaskService.create_training_task(name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epochs, val_ratio, gpu_id, save_key, description)
         response['results'] = task_id
-        print(task_id)
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
@@ -55,6 +54,30 @@ def get_task_create_status(task_id):
     try:
         status = TrainingTaskService.task_create_status(task_id)
         response['results'] = status
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+    return jsonify(response), 200
+
+@training_tasks_bp.route('/list', methods=['GET'])
+@jwt_required
+def list_tasks(user_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
+    try:
+        task_list = TrainingTaskService.get_tasks_by_user_id(user_id)
+        response['results'] = task_list
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+    return jsonify(response), 200
+
+@training_tasks_bp.route('/list/<task_id>', methods=['GET'])
+@jwt_required
+def get_task_details(user_id, task_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': []}
+    try:
+        task_list = TrainingTaskService.get_task_by_id(task_id)
+        response['results'] = task_list
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
