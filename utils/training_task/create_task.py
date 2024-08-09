@@ -3,6 +3,7 @@ import glob
 import shutil
 import random
 import time
+import copy
 
 from celery import task
 from app.models import TrainingTask
