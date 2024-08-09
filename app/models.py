@@ -276,13 +276,27 @@ class TrainingTask:
         # 根据用户 ID 查询该用户创建的所有训练任务信息
         return list(mongo.db.training_tasks.find({'user_id': ObjectId(user_id)}))
 
-    def update_status(self, new_status):
-        # 更新任务状态
-        self.status = new_status
-        mongo.db.training_tasks.update_one(
-            {'_id': self.task_id},
-            {'$set': {'status': self.status}}
-        )
+    staticmethod
+    def update_status(_id, new_status):
+        try:
+            # 定义允许的状态值
+            allowed_statuses = ['IDLE', 'PENDING', 'PROCESSING', 'SUCCESS', 'FAILURE', 'ERROR', 'REVOKED']
+            
+            if new_status not in allowed_statuses:
+                raise ValueError(f"Invalid status value: {new_status}. Allowed values are: {', '.join(allowed_statuses)}")
+            
+            # 更新数据库中的任务状态
+            result = mongo.db.training_tasks.update_one(
+                {'_id': ObjectId(_id)},
+                {'$set': {'status': new_status}}
+            )
+            
+            if result.modified_count == 0:
+                raise ValueError(f"No task found with id: {_id}")
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
     def delete(self):
         # 删除训练任务信息
