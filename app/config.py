@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 16:53:06
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-06 16:02:53
+LastEditTime: 2024-08-08 09:56:10
 FilePath: /PoseidonAI-Server/app/config.py
 Description: 
 
@@ -26,3 +26,4 @@ class Config:
     MONGO_URI = 'mongodb://admin:admin@localhost:27017/poseidon?authSource=admin&retryWrites=true&w=majority'
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt_secret_key'  # JWT 签名的密钥
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=48)  # 访问令牌过期时间
+    REDIS_URL = "redis://127.0.0.1:6379/0"  # 默认 Redis URL
