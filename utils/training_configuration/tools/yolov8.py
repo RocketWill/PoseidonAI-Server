@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:53:13
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-07-27 21:50:53
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-08-07 09:52:39
 FilePath: /PoseidonAI-Server/utils/training_configuration/tools/yolov8.py
 Description: 
 
@@ -43,6 +43,8 @@ def save_config_file(user_config_content, output_path):
     args_data = deepcopy(default_data)
     args_data.update(user_config_content)
     args_data = convert_to_official_types(args_data, default_data)
+    # set time to None to prevent dynamic epochs
+    args_data['time'] = None
     write_json(args_data, output_path)
     
     saved_args = deepcopy(user_train_data)
