@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:59:09
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-05 19:24:08
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-08-07 11:32:51
 FilePath: /PoseidonAI-Server/utils/common/__init__.py
 Description: 
 
@@ -32,6 +32,15 @@ def write_json(data, file):
 def write_yaml(data, output_file):
     with open(output_file, 'w') as file:
         yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+
+def read_yaml(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        try:
+            data = yaml.safe_load(file)
+            return data
+        except yaml.YAMLError as exc:
+            print(f"Error reading YAML file: {exc}")
+            return None
         
 def remove_unannotated_images(coco_annotation_file):
     # 检查 coco_annotation_file 是否为字典类型
