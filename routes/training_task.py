@@ -118,6 +118,7 @@ def get_train_status(user_id, task_id, algo_name, framework_name, save_key):
     response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
     try:
         training_task_id = redis_client.get(task_id)
+        training_task_id = training_task_id.decode()
         status = TrainingTaskService.task_training_status(training_task_id, algo_name, framework_name, save_key, user_id)
         response['results'] = status
         TrainingTaskService.update_training_task_status(task_id, status['state'])
