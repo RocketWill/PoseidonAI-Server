@@ -8,6 +8,7 @@ Description:
 
 Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved. 
 '''
+import os
 import json
 import re
 
@@ -61,3 +62,32 @@ def remove_unannotated_images(coco_annotation_file):
     coco_data['annotations'] = annotated_annotations
     
     return coco_data
+
+def filter_coco_images_and_annotations(coco_annos, image_files):
+    """
+    过滤 COCO 数据集中不存在的图像及其相关标注。
+
+    :param coco_annos: 原始的 COCO 格式的标注数据.
+    :param image_files: 实际存在的图像文件路径列表.
+    :return: 过滤后的 COCO 数据.
+    """
+    existing_image_files = {os.path.basename(f) for f in image_files}
+    filtered_images = []
+    filtered_annotations = []
+    
+    image_id_set = set()
+
+    for image in coco_annos['images']:
+        if image['file_name'] in existing_image_files:
+            filtered_images.append(image)
+            image_id_set.add(image['id'])
+
+    for anno in coco_annos['annotations']:
+        if anno['image_id'] in image_id_set:
+            filtered_annotations.append(anno)
+    
+    coco_annos['images'] = filtered_images
+    coco_annos['annotations'] = filtered_annotations
+    
+    return coco_annos
+
