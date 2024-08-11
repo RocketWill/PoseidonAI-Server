@@ -7,7 +7,8 @@ import copy
 
 from celery import task
 from app.models import TrainingTask
-from utils.common import read_json, write_json, write_yaml, remove_unannotated_images
+from utils.common import read_json, write_json, write_yaml, \
+                         remove_unannotated_images, filter_coco_images_and_annotations
 
 # 定義任務進度步驟
 progress_steps = [
@@ -214,6 +215,8 @@ def split_d2_dataset(dataset_dir, val_ratio, output_dir):
     val_dir = os.path.join(output_dir, 'val')
     [os.makedirs(d, exist_ok=True) for d in [train_dir, val_dir]]
     coco_annos = remove_unannotated_images(coco_dataset_file)
+    # 验证图像是否存在，并移除多余图像和标注
+    coco_annos = filter_coco_images_and_annotations(coco_annos, image_files)
     train_data_file = os.path.join(output_dir, 'train.json')
     val_data_file = os.path.join(output_dir, 'val.json')
     val_image_num = int(val_ratio * len(coco_annos['images']))
