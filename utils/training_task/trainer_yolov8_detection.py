@@ -155,29 +155,30 @@ def start_training_yolo_detection_task(self, project_dir: str, task_id: str):
 
         trainer = YoloTrainer(project_dir)
         TrainingTask.update_status(task_id, TrainingStatus.PROCESSING.value)
-        self.update_state(state='PROCESSING', meta={'status': trainer.status.value})
+        self.update_state(state='PROCESSING', meta={'exc_type': '', 'exc_message': '', 'status': trainer.status.value})
 
         results = trainer.start()
     except SoftTimeLimitExceeded:
         TrainingTask.update_status(task_id, TrainingStatus.REVOKED.value)
-        self.update_state(state=TrainingStatus.REVOKED.value, meta={'status': TrainingStatus.REVOKED.value})
+        self.update_state(state=TrainingStatus.REVOKED.value, meta={'exc_type': '', 'exc_message': '', 'status': TrainingStatus.REVOKED.value})
         raise Ignore()
     except Exception as e:
         trainer.status = TrainingStatus.ERROR
         trainer.error_detail = (TrainingError.OTHER_ERROR, str(e))
+        self.update_state(state='FAILURE', meta={'exc_type':  type(e).__name__, 'exc_message': str(trainer.error_detail), 'status': trainer.status.value, 'error_detail': str(trainer.error_detail)})
         results = None
     finally:
         release_resources()
         TrainingTask.update_status(task_id, trainer.status.value)
-        self.update_state(state='PROCESSING', meta={'status': trainer.status.value, 'error_detail': trainer.error_detail})
+        self.update_state(state='PROCESSING', meta={'exc_type': 'error', 'exc_message': str(trainer.error_detail), 'status': trainer.status.value, 'error_detail': str(trainer.error_detail)})
 
     if trainer.status == TrainingStatus.SUCCESS:
         loss_values = trainer.parse_loss()
         TrainingTask.update_status(task_id, TrainingStatus.SUCCESS.value)
-        self.update_state(state='SUCCESS', meta={'status': trainer.status.value})
+        self.update_state(state='SUCCESS', meta={'exc_type': '', 'exc_message': '', 'status': trainer.status.value})
         return {'status': trainer.status.value.upper(), 'results': loss_values, 'error_detail': None}
     else:
         error_detail_str = f"{trainer.error_detail[0].name}: {trainer.error_detail[1]}"
         TrainingTask.update_status(task_id, TrainingStatus.ERROR.value)
-        self.update_state(state='FAILURE', meta={'status': trainer.status.value, 'error_detail': error_detail_str})
+        self.update_state(state='FAILURE', meta={'exc_type': '', 'exc_message': '', 'status': trainer.status.value, 'error_detail': error_detail_str})
         return {'status': trainer.status.value.upper(), 'results': None, 'error_detail': error_detail_str}
