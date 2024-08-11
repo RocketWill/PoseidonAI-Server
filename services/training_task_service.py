@@ -25,7 +25,7 @@ from services.algorithm_service import AlgorithmService
 from services.dataset_service import DatasetService
 from services.training_configuration_service import TrainingConfigurationService
 from utils.training_task.create_task import create_task
-from utils.training_task.trainer import get_trainer, read_yolo_loss_values
+from utils.training_task.trainer import get_trainer, get_loss_parser, get_loss_file
 
 # 定義全局變量，用於存儲不同的項目路徑
 training_project_root = Config.TRAINING_PROJECT_FOLDER
@@ -160,8 +160,10 @@ class TrainingTaskService:
 
     @staticmethod
     def task_training_status(training_task_id, algo_name, framework_name, save_key, user_id):
-        loss_file = os.path.join(training_project_root, user_id, save_key, 'project', 'exp', 'results.csv')
+        # loss_file = os.path.join(training_project_root, user_id, save_key, 'project', 'exp', 'results.csv')
+        loss_file = get_loss_file(algo_name, framework_name, training_project_root, user_id, save_key)
         trainer = get_trainer(algo_name, framework_name)
+        loss_parser = get_loss_parser(algo_name, framework_name)
         task = trainer.AsyncResult(training_task_id)
 
         if task.state == 'PENDING':
@@ -178,7 +180,7 @@ class TrainingTaskService:
                 'state': task.state,
                 'data': {
                     'error_detail': None,
-                    'results': read_yolo_loss_values(loss_file),
+                    'results': loss_parser(loss_file),
                     'status': 'PROCESSING'
                 }
             }
@@ -187,7 +189,7 @@ class TrainingTaskService:
                 'state': task.state,
                 'data': {
                     'error_detail': None,
-                    'results': read_yolo_loss_values(loss_file),
+                    'results': loss_parser(loss_file),
                     'status': 'SUCCESS'
                 }
             }
@@ -199,6 +201,7 @@ class TrainingTaskService:
                     'data': task.result
                 }
                 jsonify(response)
+                print(response)
             except Exception:
                 response = {
                     'state': task.state,
