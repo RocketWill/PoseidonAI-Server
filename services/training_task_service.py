@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-09 16:31:46
+LastEditTime: 2024-08-13 13:22:57
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -14,6 +14,7 @@ import uuid
 import shutil
 import glob
 import time
+import random
 
 import cv2
 from flask import jsonify
@@ -84,7 +85,7 @@ class TrainingTaskService:
             raise FileExistsError(config_file)
         
         # 保存預覽圖像
-        image_file = glob.glob(os.path.join(dataset_dir, 'images', '*'))[0]
+        image_file = random.choice(glob.glob(os.path.join(dataset_dir, 'images', '*')))
         output_dir = os.path.join(project_preview_root, user_id, save_key)
         os.makedirs(output_dir, exist_ok=True)
         output_file = os.path.join(output_dir, 'preview.jpg')
