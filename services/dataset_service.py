@@ -1,11 +1,22 @@
-from app import mongo
+'''
+Author: Will Cheng (will.cheng@efctw.com)
+Date: 2024-07-29 08:28:38
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-08-12 13:21:36
+FilePath: /PoseidonAI-Server/services/dataset_service.py
+'''
+import os
 from bson import ObjectId
 from datetime import datetime
 
+from app.config import Config
 from app.models import Dataset
+
 from .detect_type_service import DetectTypeService
 from .dataset_format_service import DatasetFormatService
+from utils.common.dataset_statistics import analyze_coco_annotation
 
+dataset_raw_root = Config.DATASET_RAW_FOLDER
 
 def format_data(data):
     data['_id'] = str(data['_id'])
@@ -16,18 +27,27 @@ def format_data(data):
     detect_type_data = DetectTypeService.get_detect_type(data['detect_type_id'])
     data['dataset_format'] = dataset_format_data
     data['detect_type'] = detect_type_data
+    data['image_files'] = sorted(data['image_files'])
     return data
 
 class DatasetService:
     @staticmethod
-    def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names):
-        dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names)
+    def create_dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names, statistics):
+        dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names, statistics)
         result = dataset.save()
         return result
 
     @staticmethod
     def get_dataset(dataset_id):
         return Dataset.find_by_id(dataset_id)
+    
+    @staticmethod
+    def get_dataset_statistics(dataset_id):
+        dataset_data = Dataset.find_by_id(dataset_id)
+        user_id = str(dataset_data.user_id)
+        save_key = dataset_data.save_key
+        coco_label_file = os.path.join(dataset_raw_root, user_id, save_key, 'mscoco', 'annotations.json')
+        return analyze_coco_annotation(coco_label_file)
 
     @staticmethod
     def get_datasets_by_user(user_id):
