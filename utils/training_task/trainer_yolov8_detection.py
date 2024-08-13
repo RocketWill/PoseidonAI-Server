@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import shutil
 import yaml
 import pandas as pd
@@ -52,22 +53,40 @@ def list_directories(path: str) -> list:
     return directories
 
 # 讀取 YOLO 訓練過程中的損失值
-def read_yolo_loss_values(csv_file_path: str) -> dict:
+
+def read_yolo_loss_values(csv_file_path: str, max_value: float = 1e3) -> dict:
     if not os.path.exists(csv_file_path):
         return {'epoch': [], 'train_loss': [], 'val_loss': []}
     
     df = pd.read_csv(csv_file_path)
     df.columns = df.columns.str.strip()
+
+    # Replace 'inf' and '-inf' with a large positive value
+    df.replace([np.inf, -np.inf], max_value, inplace=True)
+
+    # Convert columns to lists
     epoch = df['epoch'].tolist()
     box_loss = df['train/box_loss'].tolist()
     cls_loss = df['train/cls_loss'].tolist()
     dfl_loss = df['train/dfl_loss'].tolist()
-    training_loss = [box + cls + dfl for box, cls, dfl in zip(box_loss, cls_loss, dfl_loss)]
+    
+    # Handle inf values during the sum calculation
+    training_loss = [
+        min(float(box) + float(cls) + float(dfl), max_value)
+        for box, cls, dfl in zip(box_loss, cls_loss, dfl_loss)
+    ]
+
     val_box_loss = df['val/box_loss'].tolist()
     val_cls_loss = df['val/cls_loss'].tolist()
     val_dfl_loss = df['val/dfl_loss'].tolist()
-    val_loss = [box + cls + dfl for box, cls, dfl in zip(val_box_loss, val_cls_loss, val_dfl_loss)]
+    
+    val_loss = [
+        min(float(box) + float(cls) + float(dfl), max_value)
+        for box, cls, dfl in zip(val_box_loss, val_cls_loss, val_dfl_loss)
+    ]
+
     return {'epoch': epoch, 'train_loss': training_loss, 'val_loss': val_loss}
+
 
 # YOLO 訓練器類
 class YoloTrainer:
