@@ -45,12 +45,12 @@ def create_dataset(user_id):
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
         detect_type = detect_type_data['tag_name'].lower()
         
-        valid_images, class_names = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
+        valid_images, class_names, dataset_statistics, coco_image_filenames = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
                                       detect_type, r_image_list, label_file, image_files)
         result = DatasetService\
                 .create_dataset(user_id, name, description, detect_type_id, 
-                                               r_label_file, r_image_list, valid_images, 
-                                               save_key, dataset_format, class_names)
+                                               r_label_file, coco_image_filenames, valid_images, 
+                                               save_key, dataset_format, class_names, dataset_statistics)
         if not result:
             raise ValueError('保存資料集錯誤')
         return jsonify({ 'code': 200, 'show_msg': 'ok', 'msg': 'ok', 'results': None }), 200
@@ -116,7 +116,8 @@ def delete_dataset(user_id, dataset_id):
             raise ValueError("刪除資料集失敗")
         return jsonify({'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}), 200
     except Exception as e:
-        return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'errpr', 'results': None}), 500
+        traceback.print_exc()
+        return jsonify({'code': 500, 'msg': str(e), 'show_msg': 'errpr', 'results': None}), 200
 
 
 @datasets_bp.route('/vis/<dataset_id>', methods=['POST'])
@@ -183,6 +184,21 @@ def find_by_format_detect_type(user_id, dataset_format_id, detect_type_id):
         datasets = DatasetService.\
             find_by_user_format_detect_type(user_id, dataset_format_id, detect_type_id)
         response['results'] = datasets
+        return jsonify(response), 200
+    except Exception as e:
+        traceback.print_exc()
+        response['msg'] = str(e)
+        response['code'] = 500
+        return jsonify(response), 200
+    
+@datasets_bp.route('/statistics/<dataset_id>', methods=['GET'])
+@jwt_required
+def get_dataset_statistics(user_id, dataset_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': {}}
+    try:
+        statistics = DatasetService.\
+            get_dataset_statistics(dataset_id)
+        response['results'] = statistics
         return jsonify(response), 200
     except Exception as e:
         traceback.print_exc()
