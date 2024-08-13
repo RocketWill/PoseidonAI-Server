@@ -6,7 +6,7 @@ from pycocotools import mask
 
 from .coco2yolo_utils import *
 
-def convert_coco_json(json_file='../coco/annotations/instances_default.json', output_path="", use_segments=False, use_keypoints=False, cls91to80=False):
+def convert_coco_json(json_file='../coco/annotations/instances_default.json', output_path="", use_segments=False, use_keypoints=False):
     save_dir = make_dirs(output_path)  # output directory
 
     try:
@@ -17,6 +17,11 @@ def convert_coco_json(json_file='../coco/annotations/instances_default.json', ou
         # Import JSON
         with open(json_file, 'r') as f:
             data = json.load(f)
+
+        # Create class mapping from the categories in the JSON file
+        categories = data['categories']
+        class_map = {category['id']: idx for idx, category in enumerate(categories)}
+        print(f"Generated class map: {class_map}")
 
         # Create image dict
         images = {'%g' % x['id']: x for x in data['images']}
@@ -36,6 +41,9 @@ def convert_coco_json(json_file='../coco/annotations/instances_default.json', ou
             segments = []
             keypoints = []
             for ann in anns:
+                # Use the dynamically generated class ID mapping
+                cls = class_map[ann['category_id']]
+
                 if len(ann['bbox']) == 0:
                     box = bbox_from_keypoints(ann)
                 else:
@@ -46,7 +54,6 @@ def convert_coco_json(json_file='../coco/annotations/instances_default.json', ou
                 if box[2] <= 0 or box[3] <= 0:
                     continue
 
-                cls = 0
                 box = [cls] + box.tolist()
                 if box not in bboxes:
                     bboxes.append(box)
@@ -88,7 +95,6 @@ def convert_coco_json(json_file='../coco/annotations/instances_default.json', ou
         raise ValueError(e)
     except Exception as e:
         raise ValueError(e)
-                    
 
 def bbox_from_keypoints(ann):
     if 'keypoints' not in ann:
