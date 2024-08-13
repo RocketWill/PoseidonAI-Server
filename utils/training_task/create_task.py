@@ -9,6 +9,7 @@ from celery import task
 from app.models import TrainingTask
 from utils.common import read_json, write_json, write_yaml, \
                          remove_unannotated_images, filter_coco_images_and_annotations
+from utils.common.dataset_statistics import summarize_yolo_dataset, summarize_coco_dataset
 
 # 定義任務進度步驟
 progress_steps = [
@@ -40,15 +41,15 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
     if training_framework_name == 'YOLOv8':
         update_progress(1, 'Preparing task')
         time.sleep(1)
-        train_num, val_num = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
+        [train_num, val_num], summary = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
     elif training_framework_name == 'Detectron2-InstanceSegmentation':
         update_progress(1, 'Preparing task')
         time.sleep(1)
-        train_num, val_num = create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
+        [train_num, val_num], summary = create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
     else:
         raise NotImplementedError
 
-    task = TrainingTask(name, user_id, algorithm_id, dataset_id, training_configuration_id, model, epochs, val_ratio, gpu_id, save_key, [train_num, val_num], description)
+    task = TrainingTask(name, user_id, algorithm_id, dataset_id, training_configuration_id, model, epochs, val_ratio, gpu_id, save_key, [train_num, val_num], description, summary)
     task.save()
     update_progress(1, 'Finishing task')
     time.sleep(2)
@@ -59,12 +60,13 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
 def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
     update_progress(1, 'Reading COCO label file')
     time.sleep(1)
-    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
+    coco_label_file = os.path.join(dataset_dir, 'mscoco', 'annotations.json')
     class_names = get_class_names(coco_label_file)
 
     update_progress(1, 'Splitting dataset')
     time.sleep(1)
-    dataset_file_content, [train_num, val_num] = split_yolov8_dataset(dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data'))
+    dataset_file_content, (train_pairs, val_pairs) = split_yolov8_dataset(dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data'))
+    dataset_summary, classes_summary = summarize_yolo_dataset(train_pairs, val_pairs, class_names)
 
     update_progress(1, 'Writing dataset and config files')
     time.sleep(1)
@@ -88,24 +90,26 @@ def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model,
 
     update_progress(1, 'Task preparation complete.')
     time.sleep(1)
-    return [train_num, val_num]
+    return [len(train_pairs), len(val_pairs)], classes_summary
 
 # 創建 Detectron2-InstanceSegmentation 訓練任務
 def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
+    model_resnet_depth = int(model.split('___')[1]) # example: mask_rcnn_R_50_FPN_3x___18, to get the Resnet depth
     update_progress(1, 'Reading COCO label file')
     time.sleep(1)
-    coco_label_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
-
+    coco_label_file = os.path.join(dataset_dir, 'mscoco', 'annotations.json')
+    class_names = get_class_names(coco_label_file)
     update_progress(1, 'Splitting dataset')
     time.sleep(1)
-    train_num, val_num = split_d2_dataset(dataset_dir, val_ratio, os.path.join(project_dir, 'data'))
+    train_coco_data, val_coco_data = split_d2_dataset(dataset_dir, val_ratio, os.path.join(project_dir, 'data'))
+    dataset_summary, classes_summary = summarize_coco_dataset(train_coco_data, val_coco_data, class_names)
 
     update_progress(1, 'Writing dataset and config files')
     time.sleep(1)
     cfg_file = os.path.join(project_dir, 'cfg.yaml')
     training_args = read_json(args_file)
     task_dir = os.path.join(project_dir, 'project')
-    training_args.update({'SOLVER_MAX_ITER': epochs, 'DATASETS_TRAIN': ['train_dataset'], 'DATASETS_TEST': ['val_dataset'] if val_num else []})
+    training_args.update({'RESNETS_DEPTH': model_resnet_depth, 'SOLVER_MAX_ITER': epochs, 'DATASETS_TRAIN': ['train_dataset'], 'DATASETS_TEST': ['val_dataset'] if len(val_coco_data['images']) else []})
     training_args_yaml = d2_dict_to_yaml(training_args)
     training_args_yaml.update({'OUTPUT_DIR': task_dir})
     training_args_yaml['MODEL']['DEVICE'] = 'cuda:{}'.format(gpu_id)
@@ -113,7 +117,7 @@ def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, 
 
     update_progress(1, 'Task preparation complete.')
     time.sleep(1)
-    return [train_num, val_num]
+    return [len(train_coco_data['images']), len(val_coco_data['images'])], classes_summary
 
 # 提取 COCO 標籤文件中的類別名稱
 def get_class_names(coco_label_file):
@@ -163,7 +167,7 @@ def split_yolov8_dataset(dataset_dir, val_ratio, class_names, output_dir):
         val='images/val' if val_image_num else '',
         test='',
         names=class_names
-    ), [len(train_pairs), len(val_pairs)]
+    ), (train_pairs, val_pairs)
 
 # 分割 COCO 數據集
 def split_coco_dataset(coco_data, val_size):
@@ -209,7 +213,7 @@ def copy_images_to_train_val_dirs(image_files, train_data, val_data, train_dir, 
 
 # 分割 Detectron2 數據集
 def split_d2_dataset(dataset_dir, val_ratio, output_dir):
-    coco_dataset_file = glob.glob(os.path.join(dataset_dir, 'mscoco', '*.json'))[0]
+    coco_dataset_file = os.path.join(dataset_dir, 'mscoco', 'annotations.json')
     image_files = glob.glob(os.path.join(dataset_dir, 'images', '*'))
     train_dir = os.path.join(output_dir, 'train')
     val_dir = os.path.join(output_dir, 'val')
@@ -224,7 +228,7 @@ def split_d2_dataset(dataset_dir, val_ratio, output_dir):
     write_json(train_coco_data, train_data_file)
     write_json(val_coco_data, val_data_file)
     copy_images_to_train_val_dirs(image_files, train_coco_data, val_coco_data, train_dir, val_dir)
-    return len(train_coco_data['images']), len(val_coco_data['images'])
+    return train_coco_data, val_coco_data
 
 # 將 Detectron2 字典轉換為 YAML 結構
 def d2_dict_to_yaml(data):
@@ -236,7 +240,7 @@ def d2_dict_to_yaml(data):
             },
             "RESNETS": {
                 "OUT_FEATURES": data["RESNETS_OUT_FEATURES"],
-                "DEPTH": data["RESNETS_DEPTH"]
+                "DEPTH": data["RESNETS_DEPTH"],
             },
             "FPN": {
                 "IN_FEATURES": data["FPN_IN_FEATURES"]
@@ -284,4 +288,7 @@ def d2_dict_to_yaml(data):
         },
         "VERSION": data["VERSION"]
     }
+
+    if (int(data.get('RESNETS_DEPTH')) in [18, 34]):
+        yaml_structure['MODEL']['RESNETS']['RES2_OUT_CHANNELS'] = 64
     return yaml_structure
