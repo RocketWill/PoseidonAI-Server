@@ -2,7 +2,7 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-08-12 10:19:06
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-12 15:27:16
+LastEditTime: 2024-08-16 10:13:42
 FilePath: /PoseidonAI-Server/utils/common/dataset_statistics.py
 '''
 import os
@@ -117,12 +117,14 @@ def count_coco_dataset_info(coco_data, classnames):
         'images': len(coco_data['images'])
     }
 
+    classnames = coco_data['categories']
     class_info = defaultdict(lambda: {'instances': 0, 'images': set()})
 
     for annotation in coco_data['annotations']:
         class_id = annotation['category_id']
         image_id = annotation['image_id']
-        classname = classnames[class_id]
+        # classname = classnames[class_id]
+        classname = [d for d in classnames if d['id'] == class_id][0]['name']
 
         dataset_info['instances'] += 1
         class_info[classname]['instances'] += 1
