@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 16:53:06
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-08 09:56:10
+LastEditTime: 2024-08-14 11:17:29
 FilePath: /PoseidonAI-Server/app/config.py
 Description: 
 
@@ -21,6 +21,7 @@ class Config:
     TRAINING_CONFIGS_FOLDER = abspath(join(current_dir, os.pardir, 'data', 'configs'))
     TRAINING_PROJECT_FOLDER = abspath(join(current_dir, os.pardir, 'data', 'projects'))
     PROJECT_PRVIEW_IMAGE_FOLDER = abspath(join(STATIC_FOLDER, 'project_preview'))
+    DATASET_PRVIEW_IMAGE_FOLDER = abspath(join(STATIC_FOLDER, 'dataset_preview'))
     
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your_secret_key_here'
     MONGO_URI = 'mongodb://admin:admin@localhost:27017/poseidon?authSource=admin&retryWrites=true&w=majority'

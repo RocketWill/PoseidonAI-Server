@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:59:09
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-07 11:32:51
+LastEditTime: 2024-08-14 11:15:00
 FilePath: /PoseidonAI-Server/utils/common/__init__.py
 Description: 
 
@@ -12,6 +12,7 @@ import os
 import json
 import re
 
+import cv2
 import yaml
 
 def read_json(file):
@@ -91,3 +92,12 @@ def filter_coco_images_and_annotations(coco_annos, image_files):
     
     return coco_annos
 
+# 處理預覽圖像
+def handle_preview_image(image_file, output_file):
+    preview_image = cv2.imread(image_file)
+    original_height, original_width = preview_image.shape[:2]
+    target_width = 256
+    target_height = int((target_width / original_width) * original_height)
+    preview_image = cv2.resize(preview_image, (target_width, target_height), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(output_file, preview_image)
+    return output_file

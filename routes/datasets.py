@@ -51,7 +51,8 @@ def create_dataset(user_id):
                 .create_dataset(user_id, name, description, detect_type_id, 
                                                r_label_file, coco_image_filenames, valid_images, 
                                                save_key, dataset_format, class_names, dataset_statistics)
-        if not result:
+        save_preview_result = DatasetService.create_preview_image(user_id, save_key)
+        if not (result or save_preview_result):
             raise ValueError('保存資料集錯誤')
         return jsonify({ 'code': 200, 'show_msg': 'ok', 'msg': 'ok', 'results': None }), 200
     except Exception as e:

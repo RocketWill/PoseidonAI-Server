@@ -2,10 +2,12 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-07-29 08:28:38
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-12 13:21:36
+LastEditTime: 2024-08-14 11:25:27
 FilePath: /PoseidonAI-Server/services/dataset_service.py
 '''
 import os
+import glob
+import random
 from bson import ObjectId
 from datetime import datetime
 
@@ -15,8 +17,12 @@ from app.models import Dataset
 from .detect_type_service import DetectTypeService
 from .dataset_format_service import DatasetFormatService
 from utils.common.dataset_statistics import analyze_coco_annotation
+from utils.common import handle_preview_image
 
 dataset_raw_root = Config.DATASET_RAW_FOLDER
+dataset_preview_root = Config.DATASET_PRVIEW_IMAGE_FOLDER
+os.makedirs(dataset_raw_root, exist_ok=True)
+os.makedirs(dataset_preview_root, exist_ok=True)
 
 def format_data(data):
     data['_id'] = str(data['_id'])
@@ -36,6 +42,19 @@ class DatasetService:
         dataset = Dataset(user_id, name, description, detect_type_id, label_file, image_files, valid_images_num, save_key, dataset_format_ids, class_names, statistics)
         result = dataset.save()
         return result
+    
+    @staticmethod
+    def create_preview_image(user_id, save_key):
+        dataset_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
+        if not os.path.exists(dataset_image_dir):
+            return False
+        image_file = random.choice(glob.glob(os.path.join(dataset_image_dir, '*')))
+        output_dir = os.path.join(dataset_preview_root, user_id, save_key)
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, 'preview.jpg')
+        if not os.path.exists(handle_preview_image(image_file, output_file)):
+            return False
+        return True
 
     @staticmethod
     def get_dataset(dataset_id):
