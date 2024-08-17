@@ -1,3 +1,13 @@
+'''
+Author: Will Cheng chengyong@pku.edu.cn
+Date: 2024-08-16 21:05:19
+LastEditors: Will Cheng chengyong@pku.edu.cn
+LastEditTime: 2024-08-17 17:04:33
+FilePath: /PoseidonAI-Server/utils/evaluation_task/evaluation_yolov8_detection.py
+Description: 
+
+Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved. 
+'''
 import os
 
 import numpy as np
@@ -15,15 +25,18 @@ def eval_yolov8_detection(project_root, iou_thres, batch_size, gpu_id=None):
     print(weights_file, args_file)
     assert os.path.exists(weights_file) and os.path.exists(args_file)
     cfg = read_yaml(args_file)
-    cfg.update({
-        'device': 'cuda:{}'.format(gpu_id) if gpu_id else 'cpu',
-        'workers': 0,
+    cfg = {
+        'batch': batch_size, 
+        'conf': 0.01, 
         'iou': iou_thres,
+        'data': cfg.get('data'),
+        'project': None,
+        'name': 'eval',
         'plots': False,
         'save': False,
-        'project': None,
-        'batch': batch_size
-    })
+        'device': 'cuda:{}'.format(gpu_id) if gpu_id else 'cpu',
+    }
+
 
     model = YOLO(weights_file)
     metrics = model.val(**cfg)
@@ -65,7 +78,7 @@ def eval_yolov8_detection(project_root, iou_thres, batch_size, gpu_id=None):
             'precision': [prec.tolist() for prec in PR_precision],
             'precision_mean': PR_precision_mean.tolist()
         },
-        'result_dict': metrics.results_dict
+        'result_dict': {'precision': metrics.results_dict['metrics/precision(B)'], 'recall': metrics.results_dict['metrics/recall(B)']}
     }
 
     write_json(data_to_save, metrics_file)
