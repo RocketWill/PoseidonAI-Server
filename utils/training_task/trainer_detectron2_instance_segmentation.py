@@ -92,9 +92,6 @@ class Detectron2Trainer:
         cfg.DATALOADER.NUM_WORKERS = 0
         cfg.DATASETS.TRAIN = ("train_dataset",)
         cfg.DATASETS.TEST = ("val_dataset",)
-        # TODO: change cfg.MODEL.ROI_HEADS.NUM_CLASSES to proper number
-        num_classes = len(read_json(os.path.join(self.project_dir, "data/train.json"))['categories'])
-        cfg.MODEL.ROI_HEADS.NUM_CLASSES = num_classes
         return cfg.clone()
     
     def __init_trainer(self):
