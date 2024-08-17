@@ -6,6 +6,8 @@ import time
 import copy
 
 from celery import task
+import torch
+
 from app.models import TrainingTask
 from utils.common import read_json, write_json, write_yaml, \
                          remove_unannotated_images, filter_coco_images_and_annotations
@@ -77,7 +79,7 @@ def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model,
     training_args.update(
         {
             'epochs': int(epochs), 
-            'device': 'cuda:{}'.format(int(gpu_id)), 
+            'device': 'cuda:{}'.format(int(gpu_id)) if torch.cuda.is_available() else '', 
             'project': task_dir,
             'model': model,
             'data': dataset_file,
@@ -112,7 +114,8 @@ def create_d2_insseg_dataset(args_file, epochs, gpu_id, val_ratio, dataset_dir, 
     training_args.update({'RESNETS_DEPTH': model_resnet_depth, 'SOLVER_MAX_ITER': epochs, 'DATASETS_TRAIN': ['train_dataset'], 'DATASETS_TEST': ['val_dataset'] if len(val_coco_data['images']) else []})
     training_args_yaml = d2_dict_to_yaml(training_args)
     training_args_yaml.update({'OUTPUT_DIR': task_dir})
-    training_args_yaml['MODEL']['DEVICE'] = 'cuda:{}'.format(gpu_id)
+    training_args_yaml['MODEL']['DEVICE'] = 'cuda:{}'.format(gpu_id) if torch.cuda.is_available() else 'cpu'
+    training_args_yaml['MODEL']['ROI_HEADS']['NUM_CLASSES'] = len(class_names)
     write_yaml(training_args_yaml, cfg_file)
 
     update_progress(1, 'Task preparation complete.')
