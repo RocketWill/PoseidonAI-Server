@@ -61,6 +61,9 @@ def create(user_id):
         response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
         data = request.form.to_dict()
         data = parse_immutable_dict(data)
+        if (data.get('INPUT_MIN_SIZE_TRAIN', None)):
+            if isinstance(data.get('INPUT_MIN_SIZE_TRAIN', []), str):
+                data['INPUT_MIN_SIZE_TRAIN'] = [int(data['INPUT_MIN_SIZE_TRAIN'])]
         name = data['config_name']
         description = data.get('description', '')
         training_framework_id = data['training_framework_id']
