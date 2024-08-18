@@ -143,3 +143,40 @@ def stop_training(user_id, task_id, algo_name, framework_name):
         response['msg'] = str(e)
         traceback.print_exc()
     return jsonify(response), 200
+
+@training_tasks_bp.route('/evaluation/<task_id>', methods=['POST'])
+@jwt_required
+def task_evaluation(user_id, task_id):
+    # task id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        data = request.form.to_dict()
+        data = parse_immutable_dict(data)
+        batch_size = data['batchSize']
+        iou_thres = data['iou']
+        gpu_id = data['gpu']
+        eval_id = TrainingTaskService.task_evaluation(user_id, task_id, batch_size, iou_thres, gpu_id)
+        redis_client.set('eval_'.format(task_id), str(eval_id))
+        response['results'] = eval_id
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+# 查詢eval進度的路由
+@training_tasks_bp.route('/eval-task-status/<task_id>/<algo_name>/<framework_name>', methods=['GET'])
+@jwt_required
+def get_eval_status(user_id, task_id, algo_name, framework_name):
+    # task_id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        eval_task_id = redis_client.get('eval_'.format(task_id))
+        eval_task_id = eval_task_id.decode()
+        status = TrainingTaskService.task_evaluation_status(eval_task_id, algo_name, framework_name)
+        response['results'] = status
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
