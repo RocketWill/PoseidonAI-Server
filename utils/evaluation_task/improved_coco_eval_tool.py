@@ -650,6 +650,7 @@ class SelfEval:
     def get_curves_data_for_iou(self, iou_threshold):
         """
         获取所有类别在给定IoU阈值下的PR曲线, P曲线, R曲线, F1曲线的x, y值，并返回数据字典格式.
+        同时将结果导出为JSON格式的文件.
 
         :param iou_threshold: 用于生成曲线的IoU阈值.
         :return: 包含所有类别曲线数据的字典.
@@ -708,30 +709,42 @@ class SelfEval:
 
             f1_scores_conf = (2 * precisions_conf * recalls_conf) / (precisions_conf + recalls_conf + np.spacing(1))
 
-            precision.append(precisions_conf.tolist())
-            recall.append(recalls_conf.tolist())
-            f1_scores.append(f1_scores_conf.tolist())
+            # 将 float32 类型转换为普通的 Python float 类型
+            precision.append([float(p) for p in precisions_conf])
+            recall.append([float(r) for r in recalls_conf])
+            f1_scores.append([float(f) for f in f1_scores_conf])
 
-            # 计算平均值
-            precision_mean.append(np.mean(precisions_conf))
-            recall_mean.append(np.mean(recalls_conf))
-            f1_mean.append(np.mean(f1_scores_conf))
+        # 计算平均值，按照垂直维度 (axis=1)
+        precision_mean = [float(np.mean(p, axis=0)) for p in np.array(precision).T]
+        recall_mean = [float(np.mean(r, axis=0)) for r in np.array(recall).T]
+        f1_mean = [float(np.mean(f, axis=0)) for f in np.array(f1_scores).T]
+        # PR_precision_mean = [float(np.mean(p, axis=0)) for p in np.array(PR_precision).T]
+        PR_precision_mean = [float(np.mean(p, axis=0)) for p in np.array(PR_precision).T]
 
-            PR_precision_mean.append(np.mean(prec))
+        from scipy.interpolate import interp1d
+        # Step 1: 生成新的PR_recall
+        new_recall = np.arange(0, 1.01, 0.01)  # 从0到1，步长为0.01的数组
 
-        # 计算平均值
-        precision_mean = np.mean(precision_mean)
-        recall_mean = np.mean(recall_mean)
-        f1_mean = np.mean(f1_mean)
-        PR_precision_mean = np.mean(PR_precision_mean)
+        # Step 2: 插值处理PR_precision，使其与new_recall长度一致
+        new_precision = []
+
+        for prec, rec in zip(PR_precision, PR_recall):
+            # 创建插值函数，确保在原先recall位置的precision值保持不变
+            interp_func = interp1d(rec, prec, kind='linear', fill_value='extrapolate')
+            # 使用新的recall值进行插值
+            interpolated_prec = interp_func(new_recall)
+            # 添加到新的precision列表中
+            new_precision.append(interpolated_prec.tolist())
+
+        PR_precision_mean = [float(np.mean(p, axis=0)) for p in np.array(new_precision).T]
 
         # 从 AP_matrix 和 AR_matrix 获取给定 IoU 阈值的 AP 和 Recall 数据
         ap_values = self.AP_matrix[:, 0, t_index]
         recall_values = self.AR_matrix[:, 0, t_index]
 
         result_dict = {
-            'precision': ap_values.tolist()[0],  # 给定IoU阈值的AP数据
-            'recall': recall_values.tolist()[0]  # 给定IoU阈值的Recall数据
+            'precision': float(ap_values.tolist()[0]),  # 给定IoU阈值的AP数据
+            'recall': float(recall_values.tolist()[0])  # 给定IoU阈值的Recall数据
         }
 
         # 组织数据字典
@@ -751,9 +764,9 @@ class SelfEval:
                 "recall_mean": recall_mean  # Recall 平均值
             },
             "pr": {
-                'recall': PR_recall,
-                'precision': PR_precision,
-                'precision_mean': PR_precision_mean
+                'recall': new_recall.tolist(),
+                'precision': new_precision,
+                'precision_mean': PR_precision_mean  # 可能需要重新计算 mean
             },
             'result_dict': result_dict  # 只包含给定IoU阈值的数据
         }
