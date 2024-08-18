@@ -14,6 +14,7 @@ import uuid
 import shutil
 import glob
 import time
+import signal
 import random
 
 import cv2
@@ -27,6 +28,8 @@ from services.dataset_service import DatasetService
 from services.training_configuration_service import TrainingConfigurationService
 from utils.training_task.create_task import create_task
 from utils.training_task.trainer import get_trainer, get_loss_parser, get_loss_file
+from utils.evaluation_task import get_evaluator
+from utils.common import read_json
 
 # 定義全局變量，用於存儲不同的項目路徑
 training_project_root = Config.TRAINING_PROJECT_FOLDER
@@ -219,6 +222,8 @@ class TrainingTaskService:
         trainer = get_trainer(algo_name, framework_name)
         task = trainer.AsyncResult(training_task_id)
         task.revoke(terminate=True, signal='SIGKILL')
+        if task.state == 'PROCESSING' and hasattr(task, 'worker_pid'):
+            os.kill(task.worker_pid, signal.SIGKILL)
 
     @staticmethod
     def task_training_status_by_object(training_task_id, task_data):
@@ -231,6 +236,80 @@ class TrainingTaskService:
     @staticmethod
     def update_training_task_status(task_id, status):
         return TrainingTask.update_status(task_id, status)
+    
+    @staticmethod
+    def task_evaluation(user_id, task_id, batch_size, iou_thres, gpu_id):
+        task_data = TrainingTaskService.get_task_by_id(task_id)
+        algo_name = task_data['algorithm']['name'].replace(" ", "")
+        framework_name = task_data['algorithm']['training_framework']['name']
+        save_key = task_data['save_key']
+        project_root = os.path.join(training_project_root, user_id, save_key)        
+        evaluator = get_evaluator(algo_name, framework_name)
+        # self, project_root, iou_thres, batch_size, gpu_id=0):
+        eval_task = evaluator.apply_async(args=[project_root, iou_thres, batch_size, gpu_id])
+        return eval_task.id
+    
+    @staticmethod
+    def task_evaluation_status(eval_task_id, algo_name, framework_name):
+        evaluator = get_evaluator(algo_name, framework_name)
+        task = evaluator.AsyncResult(eval_task_id)
+
+        if task.state == 'PENDING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PENDING'
+                }
+            }
+        elif task.state == 'PROCESSING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PROCESSING'
+                }
+            }
+        elif task.state == 'SUCCESS':
+            try: 
+                metrics_file = task.result['metrics_file']
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': None,
+                        'results': read_json(metrics_file),
+                        'status': 'SUCCESS'
+                    }
+                }
+            except Exception as e:
+                response = {
+                    'state': task.result.status,
+                    'data': {
+                        'error_detail': task.result.error_detail,
+                        'results': read_json(metrics_file),
+                        'status': 'ERROR'
+                    }
+                }
+        else:
+            # 處理任務失敗的情況
+            try:
+                response = {
+                    'state': task.state,
+                    'data': task.result
+                }
+                jsonify(response)
+            except Exception:
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': str(task.result),
+                        'results': None,
+                        'status': 'ERROR'
+                    }
+                }
+        return response
 
 # 測試訓練任務服務的功能
 if __name__ == '__main__':
