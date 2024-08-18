@@ -2,4 +2,9 @@ data
 db
 *cache*
 test
+scripts
 static
+test.py
+*.pt
+*.pth
+runs
