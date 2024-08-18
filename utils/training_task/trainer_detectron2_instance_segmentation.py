@@ -3,12 +3,15 @@ import json
 import shutil
 import logging
 from enum import Enum, auto
+import ntpath
+
 import torch
 from detectron2.engine import DefaultTrainer, HookBase
 from detectron2.config import get_cfg
 from detectron2.data import build_detection_train_loader
 import detectron2.utils.comm as comm
 from detectron2.data.datasets import register_coco_instances
+from detectron2.data import DatasetCatalog
 
 from celery import Task, task
 from celery.exceptions import SoftTimeLimitExceeded, Ignore
@@ -68,11 +71,13 @@ def read_detectron2_metrics(json_file_path: str) -> dict:
 class Detectron2Trainer:
     def __init__(self, project_dir: str):
         self.project_dir = project_dir
+        self.key = ntpath.basename(project_dir)
         self.cfg_file = os.path.join(project_dir, 'cfg.yaml')
         self.loss_file = os.path.join(project_dir, 'project', 'metrics.json')
         self.status = TrainingStatus.IDLE
         self.error_detail = None
         self.project = os.path.join(project_dir, 'project')
+        self.dataset_names = ('train_dataset_'.format(self.key), 'val_dataset_'.format(self.key))
         self.__remove_prev_project()
         os.makedirs(self.project, exist_ok=True)
         self.cfg = self.__init_cfg()
@@ -82,16 +87,23 @@ class Detectron2Trainer:
         if os.path.exists(self.project):
             logger.info(f"Removing previous project directory at {self.project}")
             shutil.rmtree(self.project)
+            
+    def __remove_registed_dataset(self):
+        datasets = DatasetCatalog.list()
+        for dataset_name in self.dataset_names:
+            if dataset_name in datasets:
+                DatasetCatalog.remove(dataset_name)
         
     def __init_cfg(self):
         logger.info("Initializing configuration")
-        register_coco_instances("train_dataset", {}, os.path.join(self.project_dir, "data/train.json"), os.path.join(self.project_dir, "data/train"))
-        register_coco_instances("val_dataset", {}, os.path.join(self.project_dir, "data/val.json"), os.path.join(self.project_dir, "data/val"))
+        self.__remove_registed_dataset()
+        register_coco_instances(self.dataset_names[0], {}, os.path.join(self.project_dir, "data/train.json"), os.path.join(self.project_dir, "data/train"))
+        register_coco_instances(self.dataset_names[1], {}, os.path.join(self.project_dir, "data/val.json"), os.path.join(self.project_dir, "data/val"))
         cfg = get_cfg()
         cfg.merge_from_file(self.cfg_file)
         cfg.DATALOADER.NUM_WORKERS = 0
-        cfg.DATASETS.TRAIN = ("train_dataset",)
-        cfg.DATASETS.TEST = ("val_dataset",)
+        cfg.DATASETS.TRAIN = (self.dataset_names[0],)
+        cfg.DATASETS.TEST = (self.dataset_names[1],)
         return cfg.clone()
     
     def __init_trainer(self):
@@ -174,6 +186,9 @@ class ValidationLoss(HookBase):
 
 class Detectron2TrainingTask(Task):
     name = 'tasks.train.detectron2'
+    
+    def run(self, *args, **kwargs):
+        self.worker_pid = os.getpid()  # Store the PID
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error(f"Task {task_id} failed due to {exc}")
@@ -185,10 +200,10 @@ class Detectron2TrainingTask(Task):
 
 @task(bind=True, base=Detectron2TrainingTask)
 def start_training_detectron2_task(self, project_dir: str, task_id: str):
+    trainer = Detectron2Trainer(project_dir)
     try:
         logger.info(f"Starting Detectron2 training task with task_id: {task_id}")
         TrainingTask.update_status(task_id, TrainingStatus.PENDING.value)
-        trainer = Detectron2Trainer(project_dir)
         TrainingTask.update_status(task_id, TrainingStatus.PROCESSING.value)
         self.update_state(state='PROCESSING', meta={'exc_type': '', 'exc_message': '', 'status': trainer.status.value})
 
