@@ -6,6 +6,19 @@ import matplotlib.pyplot as plt
 import os
 # import pdb
 
+def replace_nan_with_zero(data):
+    """
+    递归地将字典或列表中的NaN值替换为0.
+    """
+    if isinstance(data, dict):
+        for key, value in data.items():
+            data[key] = replace_nan_with_zero(value)
+    elif isinstance(data, list):
+        return [replace_nan_with_zero(item) for item in data]
+    elif isinstance(data, float) and np.isnan(data):
+        return 0.0
+    return data
+
 class SelfEval:
     def __init__(self, cocoGt, cocoDt, all_points=False, iou_type='bbox', iou_thres=[0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]):
         assert iou_type in ('bbox', 'segmentation'), 'Only support measure bbox or segmentation now.'
@@ -768,7 +781,7 @@ class SelfEval:
                 'precision': new_precision,
                 'precision_mean': PR_precision_mean  # 可能需要重新计算 mean
             },
-            'result_dict': result_dict  # 只包含给定IoU阈值的数据
+            'result_dict': result_dict,  # 只包含给定IoU阈值的数据
         }
 
-        return data_to_save
+        return replace_nan_with_zero(data_to_save)
