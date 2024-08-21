@@ -126,6 +126,11 @@ class EvalDetectron2Segmentation:
                 return False
 
             metrics = self.run_coco_eval(self.cooc_val_gt_file, coco_val_dt_file, self.iou_thres)
+            metrics['parameters'] = {
+                'iou_thres': self.iou_thres,
+                'batch_size': self.batch_size,
+                'gpu_id': self.gpu_id
+            }
             write_json(metrics, self.metrics_file)
 
             if not os.path.exists(self.metrics_file):
