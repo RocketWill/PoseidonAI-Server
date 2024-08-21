@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-13 13:22:57
+LastEditTime: 2024-08-20 16:02:40
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -28,7 +28,7 @@ from services.dataset_service import DatasetService
 from services.training_configuration_service import TrainingConfigurationService
 from utils.training_task.create_task import create_task
 from utils.training_task.trainer import get_trainer, get_loss_parser, get_loss_file
-from utils.evaluation_task import get_evaluator
+from utils.evaluation_task import get_evaluator, get_metrics_file
 from utils.common import read_json
 
 # 定義全局變量，用於存儲不同的項目路徑
@@ -161,6 +161,24 @@ class TrainingTaskService:
         trainer = get_trainer(algo_name, framework_name)
         training_task = trainer.apply_async(args=[project_dir, task_id])
         return training_task.id
+    
+    @staticmethod
+    def get_loss_result(task_data):
+        user_id = task_data['user_id']
+        save_key = task_data['save_key']
+        algo_name = task_data['algorithm']['name'].replace(" ", "")
+        framework_name = task_data['algorithm']['training_framework']['name']
+        loss_file = get_loss_file(algo_name, framework_name, training_project_root, user_id, save_key)
+        loss_parser = get_loss_parser(algo_name, framework_name)
+        return {
+                'state': 'SUCCESS',
+                'data': {
+                    'error_detail': None,
+                    'results': loss_parser(loss_file),
+                    'status': 'SUCCESS'
+                }
+            }
+
 
     @staticmethod
     def task_training_status(training_task_id, algo_name, framework_name, save_key, user_id):
@@ -310,6 +328,13 @@ class TrainingTaskService:
                     }
                 }
         return response
+    
+    @staticmethod
+    def task_evaluation_result(algo_name, framework_name, user_id, save_key):
+        metrics_file = get_metrics_file(algo_name, framework_name, training_project_root, user_id, save_key)
+        if os.path.exists(metrics_file):
+            return read_json(metrics_file)
+        return False
 
 # 測試訓練任務服務的功能
 if __name__ == '__main__':
