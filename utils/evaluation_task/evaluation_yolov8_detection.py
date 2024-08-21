@@ -42,7 +42,7 @@ class EvalYolov8ObjectDetection:
             cfg = read_yaml(self.args_file)
             cfg = {
                 'batch': self.batch_size, 
-                'conf': 0.01, 
+                # 'conf': 0.01, 
                 'iou': self.iou_thres,
                 'data': cfg.get('data'),
                 'project': self.eval_dir,
@@ -87,9 +87,12 @@ class EvalYolov8ObjectDetection:
             PR_recall = metrics.curves_results[0][0]  # Recall 数据
             PR_precision = metrics.curves_results[0][1]  # Precision 数据
             PR_precision_mean = np.mean(PR_precision, axis=0)
+            class_index = metrics.ap_class_index
+            names = [{'id': i, 'name': val} for i, (key, val) in enumerate(metrics.names.items()) if key in class_index]
+            names = [{'id': i, 'name': val['name']} for i, val in enumerate(names)]
 
             data_to_save = {
-                "names": [{"id": key, "name": value} for key, value in metrics.names.items()],
+                "names": names,
                 "confidence": confidence_1.tolist(),
                 "f1": {
                     "f1_scores": [f1.tolist() for f1 in f1_scores],  # F1-score 数据
@@ -108,7 +111,12 @@ class EvalYolov8ObjectDetection:
                     'precision': [prec.tolist() for prec in PR_precision],
                     'precision_mean': PR_precision_mean.tolist()
                 },
-                'result_dict': {'precision': metrics.results_dict['metrics/precision(B)'], 'recall': metrics.results_dict['metrics/recall(B)']}
+                'result_dict': {'precision': metrics.results_dict['metrics/precision(B)'], 'recall': metrics.results_dict['metrics/recall(B)']},
+                'parameters': {
+                    'iou_thres': self.iou_thres,
+                    'batch_size': self.batch_size,
+                    'gpu_id': self.gpu_id
+                }
             }
 
             write_json(data_to_save, self.metrics_file)
