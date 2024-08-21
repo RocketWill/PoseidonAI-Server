@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-09 16:33:19
+LastEditTime: 2024-08-20 16:04:03
 FilePath: /PoseidonAI-Server/routes/training_task.py
 Description: 
 
@@ -82,6 +82,9 @@ def get_task_details(user_id, task_id):
         task_state = None
         if training_task_id:
             task_state = TrainingTaskService.task_training_status_by_object(training_task_id, task_detail)
+        if task_detail['status'] == 'SUCCESS':
+            task_state = TrainingTaskService.get_loss_result(task_detail)
+            
         response['results'] = dict(
             task_detail=task_detail,
             task_state=task_state
@@ -175,6 +178,25 @@ def get_eval_status(user_id, task_id, algo_name, framework_name):
         eval_task_id = eval_task_id.decode()
         status = TrainingTaskService.task_evaluation_status(eval_task_id, algo_name, framework_name)
         response['results'] = status
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+
+@training_tasks_bp.route('/evaluation-results/<task_id>', methods=['GET'])
+@jwt_required
+def get_eval_results(user_id, task_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        task_data = TrainingTaskService.get_task_by_id(task_id)
+        algo_name = task_data['algorithm']['name'].replace(" ", "")
+        framework_name = task_data['algorithm']['training_framework']['name']
+        save_key = task_data['save_key']
+        user_id = task_data['user_id']
+        metrics_data = TrainingTaskService.task_evaluation_result(algo_name, framework_name, user_id, save_key)
+        response['results'] = metrics_data
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
