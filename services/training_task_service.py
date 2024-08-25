@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
-LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-20 16:02:40
+LastEditors: Will Cheng chengyong@pku.edu.cn
+LastEditTime: 2024-08-25 16:51:55
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -29,15 +29,19 @@ from services.training_configuration_service import TrainingConfigurationService
 from utils.training_task.create_task import create_task
 from utils.training_task.trainer import get_trainer, get_loss_parser, get_loss_file
 from utils.evaluation_task import get_evaluator, get_metrics_file
+from utils.visualize_val import get_visualizer, get_visualized_file
+from utils.visualize_val.common import move_images
 from utils.common import read_json
 
 # 定義全局變量，用於存儲不同的項目路徑
 training_project_root = Config.TRAINING_PROJECT_FOLDER
 training_configurations_root = Config.TRAINING_CONFIGS_FOLDER
+val_visualization_root = Config.VAL_VISUALIZATION_IMAGE_FOLDER
 dataset_root = Config.DATASET_RAW_FOLDER
 project_preview_root = Config.PROJECT_PRVIEW_IMAGE_FOLDER
 os.makedirs(training_project_root, exist_ok=True)
 os.makedirs(project_preview_root, exist_ok=True)
+os.makedirs(val_visualization_root, exist_ok=True)
 
 # 取得任務的狀態標籤
 def get_task_status_tag(_id):
@@ -334,6 +338,89 @@ class TrainingTaskService:
         metrics_file = get_metrics_file(algo_name, framework_name, training_project_root, user_id, save_key)
         if os.path.exists(metrics_file):
             return read_json(metrics_file)
+        return False
+    
+    @staticmethod
+    def task_visualization(user_id, task_id, iou_thres, conf=0.01):
+        task_data = TrainingTaskService.get_task_by_id(task_id)
+        algo_name = task_data['algorithm']['name'].replace(" ", "")
+        framework_name = task_data['algorithm']['training_framework']['name']
+        save_key = task_data['save_key']
+        project_root = os.path.join(training_project_root, user_id, save_key)
+        val_image_dir = os.path.join(project_root, 'data', 'images', 'val')
+        static_val_image_dir = os.path.join(val_visualization_root, user_id, save_key)
+        visualizer = get_visualizer(algo_name, framework_name)
+        vis_task = visualizer.apply_async(args=[project_root, iou_thres, conf])
+        move_images(val_image_dir, static_val_image_dir)
+        return vis_task.id
+    
+    @staticmethod
+    def task_visualization_status(vis_task_id, algo_name, framework_name):
+        visualizer = get_visualizer(algo_name, framework_name)
+        task = visualizer.AsyncResult(vis_task_id)
+
+        if task.state == 'PENDING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PENDING'
+                }
+            }
+        elif task.state == 'PROCESSING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PROCESSING'
+                }
+            }
+        elif task.state == 'SUCCESS':
+            try: 
+                preds_file = task.result['preds_file']
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': None,
+                        'results': read_json(preds_file),
+                        'status': 'SUCCESS'
+                    }
+                }
+            except Exception as e:
+                response = {
+                    'state': task.result.status,
+                    'data': {
+                        'error_detail': task.result.error_detail,
+                        'results': None,
+                        'status': 'ERROR'
+                    }
+                }
+        else:
+            # 處理任務失敗的情況
+            try:
+                response = {
+                    'state': task.state,
+                    'data': task.result
+                }
+                jsonify(response)
+            except Exception:
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': str(task.result),
+                        'results': None,
+                        'status': 'ERROR'
+                    }
+                }
+        return response
+    
+    @staticmethod
+    def task_visualization_result(algo_name, framework_name, user_id, save_key):
+        visualization_file = get_visualized_file(algo_name, framework_name, training_project_root, user_id, save_key)
+        if os.path.exists(visualization_file):
+            return read_json(visualization_file)
         return False
 
 # 測試訓練任務服務的功能
