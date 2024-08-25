@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
-LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-20 16:04:03
+LastEditors: Will Cheng chengyong@pku.edu.cn
+LastEditTime: 2024-08-25 16:52:27
 FilePath: /PoseidonAI-Server/routes/training_task.py
 Description: 
 
@@ -197,6 +197,61 @@ def get_eval_results(user_id, task_id):
         user_id = task_data['user_id']
         metrics_data = TrainingTaskService.task_evaluation_result(algo_name, framework_name, user_id, save_key)
         response['results'] = metrics_data
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+
+@training_tasks_bp.route('/visualization/<task_id>', methods=['POST'])
+@jwt_required
+def task_visualization(user_id, task_id):
+    # task id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        data = request.form.to_dict()
+        data = parse_immutable_dict(data)
+        iou_thres = data['iou']
+        conf = data['conf']
+        vis_id = TrainingTaskService.task_visualization(user_id, task_id, iou_thres, conf)
+        redis_client.set('vis_'.format(task_id), str(vis_id))
+        response['results'] = vis_id
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+# 查詢vis進度的路由
+@training_tasks_bp.route('/vis-task-status/<task_id>/<algo_name>/<framework_name>', methods=['GET'])
+@jwt_required
+def get_vis_status(user_id, task_id, algo_name, framework_name):
+    # task_id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        eval_task_id = redis_client.get('vis_'.format(task_id))
+        eval_task_id = eval_task_id.decode()
+        status = TrainingTaskService.task_visualization_status(eval_task_id, algo_name, framework_name)
+        response['results'] = status
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+@training_tasks_bp.route('/visualization-results/<task_id>', methods=['GET'])
+@jwt_required
+def get_vis_results(user_id, task_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        task_data = TrainingTaskService.get_task_by_id(task_id)
+        algo_name = task_data['algorithm']['name'].replace(" ", "")
+        framework_name = task_data['algorithm']['training_framework']['name']
+        save_key = task_data['save_key']
+        user_id = task_data['user_id']
+        visualization_data = TrainingTaskService.task_visualization_result(algo_name, framework_name, user_id, save_key)
+        response['results'] = visualization_data
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
