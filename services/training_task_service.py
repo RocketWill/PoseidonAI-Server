@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-25 16:51:55
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-09-19 16:36:23
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -32,6 +32,7 @@ from utils.evaluation_task import get_evaluator, get_metrics_file
 from utils.visualize_val import get_visualizer, get_visualized_file
 from utils.visualize_val.common import move_images
 from utils.common import read_json
+from utils.export_model import get_model_exporter
 
 # 定義全局變量，用於存儲不同的項目路徑
 training_project_root = Config.TRAINING_PROJECT_FOLDER
@@ -39,9 +40,11 @@ training_configurations_root = Config.TRAINING_CONFIGS_FOLDER
 val_visualization_root = Config.VAL_VISUALIZATION_IMAGE_FOLDER
 dataset_root = Config.DATASET_RAW_FOLDER
 project_preview_root = Config.PROJECT_PRVIEW_IMAGE_FOLDER
+model_export_root = Config.MODEL_EXPORT_FOLDER
 os.makedirs(training_project_root, exist_ok=True)
 os.makedirs(project_preview_root, exist_ok=True)
 os.makedirs(val_visualization_root, exist_ok=True)
+os.makedirs(model_export_root, exist_ok=True)
 
 # 取得任務的狀態標籤
 def get_task_status_tag(_id):
@@ -51,6 +54,19 @@ def get_task_status_tag(_id):
     if not status:
         status = 'IDLE'
     return status
+
+def get_last_three_levels(path):
+    # 规范化路径，移除多余的分隔符
+    path = os.path.normpath(path)
+    # 分割路径为各个部分
+    parts = path.split(os.sep)
+    # 检查路径深度是否至少包含两级
+    if len(parts) < 3:
+        return path
+    # 获取最后两部分
+    last_two = parts[-3:]
+    # 重新组合为所需的路径格式
+    return os.path.join(*last_two)
 
 # 處理預覽圖像
 def handle_preview_image(image_file, output_file):
@@ -422,6 +438,86 @@ class TrainingTaskService:
         if os.path.exists(visualization_file):
             return read_json(visualization_file)
         return False
+    
+    @staticmethod
+    def task_export_model(task_id, format, filename, content):
+        # task id is db id
+        filename = filename if filename else 'model'
+        task_data = TrainingTaskService.get_task_by_id(task_id)
+        user_id = task_data['user_id']
+        save_key = task_data['save_key']
+        project_dir = os.path.join(training_project_root, user_id, save_key)
+        algo_name = task_data['algorithm']['name'].replace(' ', '')
+        framework_name = task_data['algorithm']['training_framework']['name']
+        model_exporter = get_model_exporter(algo_name, framework_name)
+        output_dir = os.path.join(model_export_root, save_key)
+        os.makedirs(output_dir, exist_ok=True)
+        output_zip_file = os.path.join(output_dir, filename + '.zip')
+        model_exporter_task = model_exporter.apply_async(args=[project_dir, output_zip_file, format, content])
+        return model_exporter_task.id
+    
+    @staticmethod
+    def task_export_status(export_task_id, algo_name, framework_name):
+        model_exporter = get_model_exporter(algo_name, framework_name)
+        task = model_exporter.AsyncResult(export_task_id)
+
+        if task.state == 'PENDING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PENDING'
+                }
+            }
+        elif task.state == 'PROCESSING':
+            response = {
+                'state': task.state,
+                'data': {
+                    'error_detail': None,
+                    'results': None,
+                    'status': 'PROCESSING'
+                }
+            }
+        elif task.state == 'SUCCESS':
+            try: 
+                output_file = task.result['output_file']
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': None,
+                        'results': get_last_three_levels(output_file),
+                        'status': 'SUCCESS'
+                    }
+                }
+            except Exception as e:
+                print(e)
+                response = {
+                    'state': task.result['status'],
+                    'data': {
+                        'error_detail': task.result['error_detail'],
+                        'results': get_last_three_levels(output_file),
+                        'status': 'ERROR'
+                    }
+                }
+        else:
+            # 處理任務失敗的情況
+            try:
+                response = {
+                    'state': task.state,
+                    'data': task.result
+                }
+                jsonify(response)
+            except Exception:
+                response = {
+                    'state': task.state,
+                    'data': {
+                        'error_detail': str(task.result),
+                        'results': None,
+                        'status': 'ERROR'
+                    }
+                }
+        return response
 
 # 測試訓練任務服務的功能
 if __name__ == '__main__':
