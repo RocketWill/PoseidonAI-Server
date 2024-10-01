@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-25 16:52:27
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-09-19 16:33:55
 FilePath: /PoseidonAI-Server/routes/training_task.py
 Description: 
 
@@ -252,6 +252,42 @@ def get_vis_results(user_id, task_id):
         user_id = task_data['user_id']
         visualization_data = TrainingTaskService.task_visualization_result(algo_name, framework_name, user_id, save_key)
         response['results'] = visualization_data
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+@training_tasks_bp.route('/export/<task_id>', methods=['POST'])
+@jwt_required
+def task_mdoel_export(user_id, task_id):
+    # task id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        data = request.form.to_dict()
+        data = parse_immutable_dict(data)
+        filename = str(data.get('filename', 'model'))
+        content = data['content']
+        model_format = data['format']
+        export_id = TrainingTaskService.task_export_model(task_id, model_format, filename, content)
+        redis_client.set('export_'.format(task_id), str(export_id))
+        response['results'] = export_id
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    return jsonify(response), 200
+
+@training_tasks_bp.route('/export-status/<task_id>/<algo_name>/<framework_name>', methods=['GET'])
+@jwt_required
+def get_export_status(user_id, task_id, algo_name, framework_name):
+    # task_id is Task model id
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        export_task_id = redis_client.get('export_'.format(task_id))
+        export_task_id = export_task_id.decode()
+        status = TrainingTaskService.task_export_status(export_task_id, algo_name, framework_name)
+        response['results'] = status
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
