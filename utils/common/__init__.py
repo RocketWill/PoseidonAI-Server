@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:59:09
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-14 11:15:00
+LastEditTime: 2024-09-18 14:52:35
 FilePath: /PoseidonAI-Server/utils/common/__init__.py
 Description: 
 
@@ -11,6 +11,7 @@ Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved.
 import os
 import json
 import re
+import zipfile
 
 import cv2
 import yaml
@@ -101,3 +102,28 @@ def handle_preview_image(image_file, output_file):
     preview_image = cv2.resize(preview_image, (target_width, target_height), interpolation=cv2.INTER_AREA)
     cv2.imwrite(output_file, preview_image)
     return output_file
+
+def zip_files(output_zip, files_or_dirs):
+    """
+    将输入的文件或目录压缩成zip文件。
+    
+    :param output_zip: 输出的zip文件路径
+    :param files_or_dirs: 文件或目录的列表，可以混合
+    """
+    try:
+        with zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for item in files_or_dirs:
+                if os.path.isdir(item):
+                    # 遍历目录中的所有文件并添加到zip
+                    for root, dirs, files in os.walk(item):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            zipf.write(file_path, os.path.relpath(file_path, start=item))
+                elif os.path.isfile(item):
+                    # 如果是文件则直接添加到zip
+                    zipf.write(item, os.path.basename(item))
+                else:
+                    print(f"{item} 是无效的文件或目录")
+        return True
+    except:
+        return False
