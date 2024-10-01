@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 16:53:06
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-25 15:44:33
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-09-18 16:35:39
 FilePath: /PoseidonAI-Server/app/config.py
 Description: 
 
@@ -23,6 +23,7 @@ class Config:
     PROJECT_PRVIEW_IMAGE_FOLDER = abspath(join(STATIC_FOLDER, 'project_preview'))
     DATASET_PRVIEW_IMAGE_FOLDER = abspath(join(STATIC_FOLDER, 'dataset_preview'))
     VAL_VISUALIZATION_IMAGE_FOLDER = abspath(join(STATIC_FOLDER, 'val_visualization'))
+    MODEL_EXPORT_FOLDER = abspath(join(STATIC_FOLDER, 'model_export'))
     
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your_secret_key_here'
     MONGO_URI = 'mongodb://admin:admin@localhost:27017/poseidon?authSource=admin&retryWrites=true&w=majority'
