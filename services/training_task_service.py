@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-09-19 16:36:23
+LastEditTime: 2024-10-04 11:24:57
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -364,6 +364,8 @@ class TrainingTaskService:
         save_key = task_data['save_key']
         project_root = os.path.join(training_project_root, user_id, save_key)
         val_image_dir = os.path.join(project_root, 'data', 'images', 'val')
+        if 'yolo' not in framework_name.lower():
+            val_image_dir = os.path.join(project_root, 'data', 'val')
         static_val_image_dir = os.path.join(val_visualization_root, user_id, save_key)
         visualizer = get_visualizer(algo_name, framework_name)
         vis_task = visualizer.apply_async(args=[project_root, iou_thres, conf])
