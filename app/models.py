@@ -304,9 +304,13 @@ class TrainingTask:
             print(e)
             return False
 
-    def delete(self):
+    def delete(task_id):
         # 删除训练任务信息
-        mongo.db.training_tasks.delete_one({'_id': self.task_id})
+        try:
+            mongo.db.training_tasks.delete_one({'_id': ObjectId(task_id)})
+            return True
+        except:
+            return False
 
 
 class Model:
