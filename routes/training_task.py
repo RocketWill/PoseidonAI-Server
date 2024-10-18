@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-09-19 16:33:55
+LastEditTime: 2024-10-18 11:30:27
 FilePath: /PoseidonAI-Server/routes/training_task.py
 Description: 
 
@@ -89,6 +89,24 @@ def get_task_details(user_id, task_id):
             task_detail=task_detail,
             task_state=task_state
         )
+    except Exception as e:
+        response['code'] = 500
+        response['msg'] = str(e)
+        traceback.print_exc()
+    try:
+        return jsonify(response), 200
+    except:
+        response['results']['task_state']['data'] = str(response['results']['task_state']['data'])
+        return jsonify(response), 200
+
+@training_tasks_bp.route('/<task_id>', methods=['DELETE'])
+@jwt_required
+def delete_task(user_id, task_id):
+    response = {'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': None}
+    try:
+        success = TrainingTaskService.delete_task_by_id(task_id, user_id)
+        if not success:
+            raise ValueError('Delete project failed.')
     except Exception as e:
         response['code'] = 500
         response['msg'] = str(e)
