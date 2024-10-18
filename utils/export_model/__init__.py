@@ -2,7 +2,7 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-09-11 15:51:10
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-10-04 14:34:02
+LastEditTime: 2024-10-16 09:03:43
 FilePath: /PoseidonAI-Server/utils/export_model/__init__.py
 '''
 import os
@@ -17,6 +17,7 @@ current_dir = dirname(current_file_path)
 current_data_dir = os.path.join(current_dir, 'data')
 
 # Define constants for algorithm and framework names
+CLASSIFICATION = 'Classification'
 OBJECT_DETECTION = 'ObjectDetection'
 INSTANCE_SEGMENTATION = 'InstanceSegmentation'
 YOLOV8 = 'YOLOv8'
@@ -30,7 +31,7 @@ NCNN = 'ncnn'
 
 
 def get_model_exporter(algo_name: str, framework_name: str):
-    if algo_name == OBJECT_DETECTION and framework_name == YOLOV8:
+    if (algo_name == OBJECT_DETECTION or algo_name == CLASSIFICATION) and framework_name == YOLOV8:
         return start_export_yolov8_model
     elif algo_name == INSTANCE_SEGMENTATION and framework_name == DETECTRON2_INSTANCE_SEGMENTATION:
         return start_export_detectron2_model
