@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-10-04 11:24:57
+LastEditTime: 2024-10-18 11:26:04
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 
 
@@ -26,6 +26,7 @@ from app.config import Config
 from services.algorithm_service import AlgorithmService
 from services.dataset_service import DatasetService
 from services.training_configuration_service import TrainingConfigurationService
+from services.detect_type_service import DetectTypeService
 from utils.training_task.create_task import create_task
 from utils.training_task.trainer import get_trainer, get_loss_parser, get_loss_file
 from utils.evaluation_task import get_evaluator, get_metrics_file
@@ -96,6 +97,10 @@ class TrainingTaskService:
     def create_training_task(name, user_id, algorithm_id, dataset_id, training_configuration_id, model_name, epochs, val_ratio, gpu_id, save_key, description):
         algorithm_data = AlgorithmService.get_algorithm(algorithm_id)
         dataset_data = DatasetService.get_dataset(dataset_id).to_dict()
+        detect_type_id = str(dataset_data['detect_type_id'])
+        detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
+        detect_type = detect_type_data['tag_name']
+
         training_configuration_data = TrainingConfigurationService.get_training_configuration(training_configuration_id)
         config_file = os.path.join(training_configurations_root, user_id, training_configuration_data['save_key'], 'args.json')
         training_framework_name = algorithm_data['training_framework']['name']
@@ -108,7 +113,10 @@ class TrainingTaskService:
             raise FileExistsError(config_file)
         
         # 保存預覽圖像
-        image_file = random.choice(glob.glob(os.path.join(dataset_dir, 'images', '*')))
+        if detect_type == 'classify':
+            image_file = random.choice(glob.glob(os.path.join(dataset_dir, 'dataset', '*', '*')))
+        else:
+            image_file = random.choice(glob.glob(os.path.join(dataset_dir, 'images', '*')))
         output_dir = os.path.join(project_preview_root, user_id, save_key)
         os.makedirs(output_dir, exist_ok=True)
         output_file = os.path.join(output_dir, 'preview.jpg')
@@ -118,7 +126,7 @@ class TrainingTaskService:
         task = create_task.apply_async(args=[
             training_framework_name, config_file, epochs, gpu_id, val_ratio, dataset_dir,
             model_name, project_dir,
-            name, user_id, algorithm_id, dataset_id, training_configuration_id, save_key, description
+            name, user_id, algorithm_id, dataset_id, training_configuration_id, save_key, description, detect_type
         ])
         return task.id
     
@@ -169,6 +177,29 @@ class TrainingTaskService:
         task = TrainingTask.find_by_id(task_id)
         task = format_data(task)
         return task
+    
+    @staticmethod
+    def delete_task_by_id(task_id, user_id):
+        task = TrainingTask.find_by_id(task_id)
+        task = format_data(task)
+        if user_id != task['user_id']:
+            raise ValueError('Current user cannot delete the project.')
+        save_key = task['save_key']
+        project_root = os.path.join(training_project_root, user_id, save_key)
+        vis_root = os.path.join(val_visualization_root, user_id, save_key)
+        project_preview_dir = os.path.join(project_preview_root, user_id, save_key)
+        project_export_root = os.path.join(model_export_root, user_id, save_key)
+        if os.path.exists(project_root):
+            shutil.rmtree(project_root)
+        if os.path.exists(vis_root):
+            shutil.rmtree(vis_root)
+        if os.path.exists(vis_root):
+            shutil.rmtree(vis_root)
+        if os.path.exists(project_preview_dir):
+            shutil.rmtree(project_preview_dir)
+        if os.path.exists(project_export_root):
+            shutil.rmtree(project_export_root)
+        return TrainingTask.delete(task_id)
 
     @staticmethod
     def train(task_id):
@@ -360,16 +391,19 @@ class TrainingTaskService:
     def task_visualization(user_id, task_id, iou_thres, conf=0.01):
         task_data = TrainingTaskService.get_task_by_id(task_id)
         algo_name = task_data['algorithm']['name'].replace(" ", "")
+        detect_type = task_data['algorithm']['detect_type']['tag_name']
         framework_name = task_data['algorithm']['training_framework']['name']
         save_key = task_data['save_key']
         project_root = os.path.join(training_project_root, user_id, save_key)
         val_image_dir = os.path.join(project_root, 'data', 'images', 'val')
+        if detect_type == 'classify':
+            val_image_dir = os.path.join(project_root, 'data', 'val')
         if 'yolo' not in framework_name.lower():
             val_image_dir = os.path.join(project_root, 'data', 'val')
         static_val_image_dir = os.path.join(val_visualization_root, user_id, save_key)
         visualizer = get_visualizer(algo_name, framework_name)
         vis_task = visualizer.apply_async(args=[project_root, iou_thres, conf])
-        move_images(val_image_dir, static_val_image_dir)
+        move_images(val_image_dir, static_val_image_dir, detect_type)
         return vis_task.id
     
     @staticmethod
