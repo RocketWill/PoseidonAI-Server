@@ -2,11 +2,12 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-08-12 10:19:06
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-16 10:13:42
+LastEditTime: 2024-10-08 16:56:21
 FilePath: /PoseidonAI-Server/utils/common/dataset_statistics.py
 '''
 import os
 import json
+import glob
 from collections import defaultdict
 
 def analyze_coco_annotation(coco_annotation_file):
@@ -36,6 +37,20 @@ def analyze_coco_annotation(coco_annotation_file):
         category_counts=category_counts_list
     )
 
+def analyze_classify_annotation(dataset_dir):
+    class_names = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
+    category_counts_list = []
+    total_images = 0
+    for class_name in class_names:
+        cat_dir = os.path.join(dataset_dir, class_name)
+        count = len(glob.glob(os.path.join(cat_dir, '*')))
+        category_counts_list.append({'name': class_name, 'value': count})
+        total_images += count
+    return dict(
+        total_images=total_images,
+        total_instances=total_images,
+        category_counts=category_counts_list
+    )
 
 def count_yolo_dataset_info(pairs, classnames):
     dataset_info = {
@@ -64,6 +79,64 @@ def count_yolo_dataset_info(pairs, classnames):
                 class_info[classname]['images'] += 1
 
     return dataset_info, class_info
+
+def count_yolo_classify_dataset_info(data_info):
+    class_info = defaultdict(lambda: {'instances': 0, 'images': 0})
+    dataset_info = {
+        'instances': 0,
+        'images': 0
+    }
+    for data in data_info:
+        class_name = data['class_name']
+        image_num = len(data['images'])
+        class_info[class_name]['instances'] = image_num
+        class_info[class_name]['images'] = image_num
+        dataset_info['instances'] += image_num
+        dataset_info['images'] += image_num
+    return dataset_info, class_info
+
+def summarize_yolo_classify_dataset(train_info, val_info, classnames):
+    train_info, train_class_info = count_yolo_classify_dataset_info(train_info)
+    val_info, val_class_info = count_yolo_classify_dataset_info(val_info)
+    # 構建輸出格式
+    dataset_summary = []
+    class_summary = []
+
+    # 訓練集總體信息
+    dataset_summary.append({
+        'dataset_type': 'train',
+        'instances': train_info['instances'],
+        'images': train_info['images']
+    })
+
+    # 驗證集總體信息
+    dataset_summary.append({
+        'dataset_type': 'val',
+        'instances': val_info['instances'],
+        'images': val_info['images']
+    })
+
+    # 各類別訓練集信息
+    for classname in classnames:
+        class_summary.append({
+            'dataset_type': 'train',
+            'classname': classname,
+            'class_id': classnames.index(classname),
+            'instances': train_class_info[classname]['instances'],
+            'images': train_class_info[classname]['images']
+        })
+
+    # 各類別驗證集信息
+    for classname in classnames:
+        class_summary.append({
+            'dataset_type': 'val',
+            'classname': classname,
+            'class_id': classnames.index(classname),
+            'instances': val_class_info[classname]['instances'],
+            'images': val_class_info[classname]['images']
+        })
+
+    return dataset_summary, class_summary
 
 def summarize_yolo_dataset(train_pairs, val_pairs, classnames):
     # 統計訓練集信息
