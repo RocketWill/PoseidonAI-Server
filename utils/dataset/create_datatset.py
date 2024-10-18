@@ -2,7 +2,7 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-05 19:04:56
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-13 13:03:15
+LastEditTime: 2024-10-08 14:04:11
 FilePath: /PoseidonAI-Server/utils/dataset/create_datatset.py
 Description: 
 
@@ -16,8 +16,25 @@ from .tools.verify_coco_format import validate_coco_format, find_valid_images
 from .tools.coco2yolo import convert_coco_json
 from utils.common import remove_unannotated_images, filter_coco_images_and_annotations, \
     write_json, read_json
-from utils.common.dataset_statistics import analyze_coco_annotation
+from utils.common.dataset_statistics import analyze_coco_annotation, analyze_classify_annotation
+from .utils import validate_directory_structure, unzip_skip_first_level, get_image_filenames
 
+def create_classify_dataset_helper(dataset_raw_root, user_id, save_key, zip_file):
+    dataset_root = os.path.join(dataset_raw_root, user_id, save_key)
+    os.makedirs(dataset_root)
+    dataset_dir = os.path.join(dataset_root, 'dataset')
+    dataset_file = os.path.join(dataset_root, 'dataset.zip')
+    zip_file.save(dataset_file)
+    valid, msg = validate_directory_structure(dataset_file)
+    if not valid:
+        raise ValueError(msg)
+    unzip_skip_first_level(dataset_file, dataset_dir)
+    class_names = get_classify_class_names(dataset_dir)
+    filenames = get_image_filenames(dataset_dir)
+    valid_images = len(filenames)
+    dataset_statistics = analyze_classify_annotation(dataset_dir)
+    return valid_images, class_names, dataset_statistics, filenames
+    
 def create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_format, detect_type, r_image_list, label_file, image_files):
     output_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
     output_coco_dir = os.path.join(dataset_raw_root, user_id, save_key, 'mscoco')
@@ -84,3 +101,7 @@ def get_class_names(coco_label_file):
     # Extract class names from the 'categories' field
     class_names = [category['name'] for category in data['categories']]
     return class_names
+
+def get_classify_class_names(dataset_dir):
+    subdirectories = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
+    return subdirectories
