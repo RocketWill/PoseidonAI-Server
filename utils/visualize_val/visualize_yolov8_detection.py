@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-25 14:44:40
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-25 19:50:36
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-10-09 15:46:44
 FilePath: /PoseidonAI-Server/utils/visualize_val/visualize_yolov8_detection.py
 Description: 
 
@@ -63,6 +63,7 @@ class VisualizeYolov8Detection:
         assert os.path.exists(self.weights_file)
         self.dataset_config_file = os.path.join(self.project_root, 'dataset.yaml')
         self.dataset_cfg = read_yaml(self.dataset_config_file)
+        self.cfg = read_yaml( os.path.join(project_root, 'cfg.yaml'))
         self.device = '' if (torch.cuda.is_available()) else 'cpu'
         
         self.val_image_dir = os.path.join(self.project_root, 'data', 'images', 'val')
@@ -77,7 +78,7 @@ class VisualizeYolov8Detection:
         
     def run_predict(self):
         preds = []
-        results = self.model(self.val_image_files, iou=self.iou_thres, conf=self.conf, save=False, device=self.device)
+        results = self.model(self.val_image_files, iou=self.iou_thres, conf=self.conf, save=False, device=self.device, imgsz=self.cfg['imgsz'])
         for i, result in enumerate(results):
             boxes = result.boxes  # Boxes object for bounding box outputs
             probs = result.probs  # Probs object for classification outputs
