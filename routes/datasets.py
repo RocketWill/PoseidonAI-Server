@@ -16,11 +16,12 @@ from celery.result import AsyncResult
 
 from app.config import Config
 from utils.dataset.create_datatset import create_dataset_helper
-from tasks.dataset import draw_annotations_task
+from tasks.dataset import draw_annotations_task, vis_classify_dataset
 
 datasets_bp = Blueprint('dataset', __name__)
 dataset_raw_root = Config.DATASET_RAW_FOLDER
 dataset_visualization_root = os.path.join(Config.STATIC_FOLDER, 'dataset_visualization')
+dataset_preview_root = Config.DATASET_PRVIEW_IMAGE_FOLDER
 os.makedirs(dataset_raw_root, exist_ok=True)
 os.makedirs(dataset_visualization_root, exist_ok=True)
 
@@ -28,30 +29,40 @@ os.makedirs(dataset_visualization_root, exist_ok=True)
 @jwt_required
 def create_dataset(user_id):
     try:
-        label_file = request.files.get('jsonFile')
-        image_files = request.files.getlist('imageFiles')
-
         # 将表单数据转换为 JSON 格式
         data = json.loads(request.form.to_dict()['data'])
         name = data['name']
-        detect_type_id = data['detectType']
-        dataset_format = list(data['datasetFormat'])
+        detect_type_id = data['detect_type_id']
+        dataset_format = list(data['dataset_formats'])
         description = data['description']
-        r_label_file = [d['name'] for d in data['labelFile']][-1]
-        r_image_list = [d['name'] for d in data['imageList']]
         save_key = str(uuid.uuid4())
         dataset_format_data = [DatasetFormatService.get_dataset_format(d) for d in dataset_format]
         dataset_formats = [d.name.lower() for d in dataset_format_data]
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
         detect_type = detect_type_data['tag_name'].lower()
+
+        if detect_type == 'classify':
+            zip_file = request.files.get('zipFile')
+            valid_images, class_names, dataset_statistics, filenames = \
+                DatasetService.process_classify_dataset(dataset_raw_root, user_id, save_key, zip_file)
+            result = DatasetService\
+                    .create_dataset(user_id, name, description, detect_type_id, 
+                                    '-', filenames, valid_images, 
+                                    save_key, dataset_format, class_names, dataset_statistics)
+        else:
+            label_file = request.files.get('jsonFile')
+            image_files = request.files.getlist('imageFiles')
+            r_label_file = [d['name'] for d in data['labelFile']][-1]
+            r_image_list = [d['name'] for d in data['imageList']]
+            
+            valid_images, class_names, dataset_statistics, coco_image_filenames = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
+                                        detect_type, r_image_list, label_file, image_files)
+            result = DatasetService\
+                    .create_dataset(user_id, name, description, detect_type_id, 
+                                                r_label_file, coco_image_filenames, valid_images, 
+                                                save_key, dataset_format, class_names, dataset_statistics)
+        save_preview_result = DatasetService.create_preview_image(user_id, save_key, detect_type)
         
-        valid_images, class_names, dataset_statistics, coco_image_filenames = create_dataset_helper(dataset_raw_root, user_id, save_key, dataset_formats,
-                                      detect_type, r_image_list, label_file, image_files)
-        result = DatasetService\
-                .create_dataset(user_id, name, description, detect_type_id, 
-                                               r_label_file, coco_image_filenames, valid_images, 
-                                               save_key, dataset_format, class_names, dataset_statistics)
-        save_preview_result = DatasetService.create_preview_image(user_id, save_key)
         if not (result or save_preview_result):
             raise ValueError('保存資料集錯誤')
         return jsonify({ 'code': 200, 'show_msg': 'ok', 'msg': 'ok', 'results': None }), 200
@@ -108,11 +119,15 @@ def delete_dataset(user_id, dataset_id):
         save_key = dataset.save_key
         dataset_dir = os.path.join(dataset_raw_root, user_id, save_key)
         vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
+        preview_dir = os.path.join(dataset_preview_root, user_id, save_key)
         if not os.path.exists(dataset_dir):
             raise ValueError("找不到資料集位置")
         if DatasetService.delete_dataset(dataset_id):
             shutil.rmtree(dataset_dir)
-            shutil.rmtree(vis_dir)
+            if os.path.exists(vis_dir):
+                shutil.rmtree(vis_dir)
+            if os.path.exists(preview_dir):
+                shutil.rmtree(preview_dir)
         else:
             raise ValueError("刪除資料集失敗")
         return jsonify({'code': 200, 'msg': 'Dataset deleted successfully', 'show_msg': 'ok', 'results': None}), 200
@@ -128,17 +143,21 @@ def vis_dataset(user_id, dataset_id):
         dataset = DatasetService.get_dataset(dataset_id)
         if not dataset:
             raise ValueError("Dataset not found")
-        label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
-        image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
+                    
         vis_dir = os.path.join(dataset_visualization_root, user_id, dataset.save_key)
+        os.makedirs(vis_dir, exist_ok=True)
         detect_type_id = dataset.detect_type_id
         detect_type_data = DetectTypeService.get_detect_type(detect_type_id)
         detect_type = detect_type_data['tag_name'].lower()
-        draw_masks = True if 'seg' in detect_type else False
-        draw_bboxes = True if 'det' in detect_type else False
-        os.makedirs(vis_dir, exist_ok=True)
-        
-        task = draw_annotations_task.delay(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
+
+        if detect_type == 'classify':
+            task = vis_classify_dataset.delay(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'dataset'), vis_dir)
+        else:
+            label_file = glob.glob(os.path.join(dataset_raw_root, user_id, dataset.save_key, 'mscoco', '*.json'))[0]
+            image_dir = os.path.join(dataset_raw_root, user_id, dataset.save_key, 'images')
+            draw_masks = True if 'seg' in detect_type else False
+            draw_bboxes = True if 'det' in detect_type else False
+            task = draw_annotations_task.delay(image_dir, label_file, vis_dir, draw_mask=draw_masks, draw_bbox=draw_bboxes)
         print(task.id)
         return jsonify({'code': 200, 'msg': 'Process preview images successfully', 'show_msg': 'ok', 'results': task.id}), 200
     except Exception as e:
@@ -149,7 +168,6 @@ def vis_dataset(user_id, dataset_id):
 def vis_dataset_status(task_id):
     try:
         task = draw_annotations_task.AsyncResult(task_id)
-        print(task.status)
         return jsonify({'code': 200, 'msg': 'ok', 'show_msg': 'ok', 'results': task.status}), 200
     except Exception as e:
         traceback.print_exc()
