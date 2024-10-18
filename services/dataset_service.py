@@ -2,7 +2,7 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-07-29 08:28:38
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-08-14 11:25:27
+LastEditTime: 2024-10-18 13:58:40
 FilePath: /PoseidonAI-Server/services/dataset_service.py
 '''
 import os
@@ -18,6 +18,7 @@ from .detect_type_service import DetectTypeService
 from .dataset_format_service import DatasetFormatService
 from utils.common.dataset_statistics import analyze_coco_annotation
 from utils.common import handle_preview_image
+from utils.dataset.create_datatset import create_classify_dataset_helper
 
 dataset_raw_root = Config.DATASET_RAW_FOLDER
 dataset_preview_root = Config.DATASET_PRVIEW_IMAGE_FOLDER
@@ -44,11 +45,20 @@ class DatasetService:
         return result
     
     @staticmethod
-    def create_preview_image(user_id, save_key):
-        dataset_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
-        if not os.path.exists(dataset_image_dir):
-            return False
-        image_file = random.choice(glob.glob(os.path.join(dataset_image_dir, '*')))
+    def process_classify_dataset(dataset_raw_root, user_id, save_key, zip_file):
+        valid_images, class_names, dataset_statistics, filenames = create_classify_dataset_helper(dataset_raw_root, user_id, save_key, zip_file)
+        return valid_images, class_names, dataset_statistics, filenames
+
+    @staticmethod
+    def create_preview_image(user_id, save_key, detect_type='classify'):
+        if detect_type == 'classify':
+            dataset_dir = os.path.join(dataset_raw_root, user_id, save_key, 'dataset')
+            image_file = random.choice(glob.glob(os.path.join(dataset_dir, '*', '*')))
+        else:
+            dataset_image_dir = os.path.join(dataset_raw_root, user_id, save_key, 'images')
+            if not os.path.exists(dataset_image_dir):
+                return False
+            image_file = random.choice(glob.glob(os.path.join(dataset_image_dir, '*')))
         output_dir = os.path.join(dataset_preview_root, user_id, save_key)
         os.makedirs(output_dir, exist_ok=True)
         output_file = os.path.join(output_dir, 'preview.jpg')

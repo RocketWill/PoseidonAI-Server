@@ -1,8 +1,17 @@
+'''
+Author: Will Cheng (will.cheng@efctw.com)
+Date: 2024-08-12 08:42:22
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-10-09 10:46:46
+FilePath: /PoseidonAI-Server/utils/training_task/trainer.py
+'''
 import os
+from .trainer_yolov8_classify import start_training_yolo_classify_task, read_yolo_loss_values as read_yolo_classify_loss_value
 from .trainer_yolov8_detection import start_training_yolo_detection_task, read_yolo_loss_values
 from .trainer_detectron2_instance_segmentation import start_training_detectron2_task, read_detectron2_metrics
 
 # Define constants for algorithm and framework names
+CLASSIFICATION = 'Classification'
 OBJECT_DETECTION = 'ObjectDetection'
 INSTANCE_SEGMENTATION = 'InstanceSegmentation'
 YOLOV8 = 'YOLOv8'
@@ -24,6 +33,8 @@ def get_trainer(algo_name: str, framework_name: str):
     """
     if algo_name == OBJECT_DETECTION and framework_name == YOLOV8:
         return start_training_yolo_detection_task
+    elif algo_name == CLASSIFICATION and framework_name == YOLOV8:
+        return start_training_yolo_classify_task
     elif algo_name == INSTANCE_SEGMENTATION and framework_name == DETECTRON2_INSTANCE_SEGMENTATION:
         return start_training_detectron2_task
     else:
@@ -45,6 +56,8 @@ def get_loss_parser(algo_name: str, framework_name: str):
     """
     if algo_name == OBJECT_DETECTION and framework_name == YOLOV8:
         return read_yolo_loss_values
+    elif algo_name == CLASSIFICATION and framework_name == YOLOV8:
+        return read_yolo_classify_loss_value
     elif algo_name == INSTANCE_SEGMENTATION and framework_name == DETECTRON2_INSTANCE_SEGMENTATION:
         return read_detectron2_metrics
     else:
@@ -67,7 +80,7 @@ def get_loss_file(algo_name: str, framework_name: str, training_project_root: st
     Raises:
     NotImplementedError: If the combination of algorithm and framework is not implemented.
     """
-    if algo_name == OBJECT_DETECTION and framework_name == YOLOV8:
+    if (algo_name == OBJECT_DETECTION or algo_name == CLASSIFICATION) and framework_name == YOLOV8:
         return os.path.join(training_project_root, user_id, save_key, 'project', 'exp', 'results.csv')
     elif algo_name == INSTANCE_SEGMENTATION and framework_name == DETECTRON2_INSTANCE_SEGMENTATION:
         return os.path.join(training_project_root, user_id, save_key, 'project', 'metrics.json')

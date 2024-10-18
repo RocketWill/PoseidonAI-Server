@@ -1,8 +1,8 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-25 15:12:59
-LastEditors: Will Cheng chengyong@pku.edu.cn
-LastEditTime: 2024-08-25 15:56:07
+LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditTime: 2024-10-18 14:09:55
 FilePath: /PoseidonAI-Server/utils/visualize_val/common.py
 Description: 
 
@@ -33,11 +33,15 @@ class VisualizeStatus(Enum):
     ERROR = auto()
     REVOKED = auto()
 
-def move_images(src_dir, dst_dir):
+def move_images(src_dir, dst_dir, detect_type='classify'):
     if os.path.exists(dst_dir):
         shutil.rmtree(dst_dir)
     os.makedirs(dst_dir, exist_ok=True)
-    image_files = [d for d in glob.glob(os.path.join(src_dir, '*')) if os.path.isfile(d)]
+
+    if detect_type == 'classify':
+        image_files = [d for d in glob.glob(os.path.join(src_dir, '*', '*')) if os.path.isfile(d)]
+    else:
+        image_files = [d for d in glob.glob(os.path.join(src_dir, '*')) if os.path.isfile(d)]
     for image_file in image_files:
         file_name = ntpath.basename(image_file)
         dst_file = os.path.join(dst_dir, file_name)

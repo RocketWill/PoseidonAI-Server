@@ -2,11 +2,12 @@
 Author: Will Cheng (will.cheng@efctw.com)
 Date: 2024-09-11 15:51:27
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-09-18 17:19:20
+LastEditTime: 2024-10-16 13:08:47
 FilePath: /PoseidonAI-Server/utils/export_model/export_yolov8.py
 '''
 import os
 import shutil
+import glob
 from datetime import datetime
 import logging
 
@@ -15,24 +16,64 @@ from celery import Task, task
 
 from .common import ExporterError, ExporterStatus, zip_model_and_deps
 from utils.common import read_yaml
+from .constant import TORCHSCRIPT_DEPS_DIR, OPENVINO_DEPS_DIR, YOLOV8_DETNET_TS_DLL, YOLOV8_CLSNET_OV_DLL, YOLOV8_DETNET_OV_DLL
 
 logger = logging.getLogger(__name__)
 
 def generate_datetime():
     return datetime.now().strftime("%Y%m%d%H%M")
 
+def valid_format_type(convert_format):
+    if not convert_format in ['torchscript', 'openvino']:
+        return False
+    return True
+
+def get_package_contents(convert_format, detect_type):
+    if convert_format == 'torchscript':
+        if detect_type == 'detect':
+            return YOLOV8_DETNET_TS_DLL, TORCHSCRIPT_DEPS_DIR
+        else:
+            return NotImplementedError
+    if convert_format == 'openvino':
+        if detect_type == 'detect':
+            return YOLOV8_DETNET_OV_DLL, OPENVINO_DEPS_DIR
+        elif detect_type == 'classify':
+            return YOLOV8_CLSNET_OV_DLL, OPENVINO_DEPS_DIR
+        else:
+            return NotImplementedError
+
 class ExportYOLOV8Model:
 
-    def __init__(self, project_root) -> None:
+    def __init__(self, project_root, convert_format) -> None:
+        if not valid_format_type(convert_format):
+            raise ValueError('Invalid convert format type.')
+        self.convert_format = convert_format
         self.training_dir = os.path.join(project_root, 'project', 'exp')
         self.weights_dir = os.path.join(self.training_dir, 'weights')
         self.weights_file = os.path.join(self.weights_dir, 'best.pt')
-        self.output_file = os.path.join(self.weights_dir, 'model_{}.torchscript'.format(generate_datetime()))
+        self.datetime = generate_datetime()
+        if convert_format == 'torchscript':
+            self.output_file = os.path.join(self.weights_dir, 'model_{}.torchscript'.format(self.datetime))
+        elif convert_format == 'openvino':
+            self.output_file = os.path.join(self.weights_dir, 'model_{}'.format(self.datetime))
+        else:
+            raise NotImplementedError
         self.cfg_file = os.path.join(project_root, 'cfg.yaml')
         self.cfg = read_yaml(self.cfg_file)
 
         self.status = ExporterStatus.IDLE
         self.error_detail = None
+
+    def __rename_model_file(self):
+        # for openvino
+        print('======>', self.output_file)
+        output_dir = self.output_file
+        src_xml_file = glob.glob(os.path.join(output_dir, '*.xml'))[-1]
+        src_bin_file = glob.glob(os.path.join(output_dir, '*.bin'))[-1]
+        dst_xml_file = os.path.join(output_dir, 'model_{}.xml'.format(self.datetime))
+        dst_bin_file = os.path.join(output_dir, 'model_{}.bin'.format(self.datetime))
+        os.rename(src_xml_file, dst_xml_file)
+        os.rename(src_bin_file, dst_bin_file)
 
     def convert(self):
         try:
@@ -49,12 +90,18 @@ class ExportYOLOV8Model:
             model = YOLO(self.weights_file)
 
             # 导出模型为torchscript格式
-            export_path = model.export(format="torchscript", simplify=True, 
-                                       dynamic=False, imgsz=int(self.cfg['imgsz']))
+            if self.convert_format == 'torchscript':
+                export_path = model.export(format="torchscript", simplify=True, 
+                                        dynamic=False, imgsz=int(self.cfg['imgsz']))
+            elif self.convert_format == 'openvino':
+                export_path = model.export(format="openvino", simplify=True, int8=True,
+                                        dynamic=False, imgsz=int(self.cfg['imgsz']))
 
             # 检查导出结果并移动文件
             if isinstance(export_path, str) and export_path:
                 shutil.move(export_path, self.output_file)
+                if self.convert_format == 'openvino':
+                    self.__rename_model_file()
                 self.status = ExporterStatus.SUCCESS
                 print(f"Model successfully converted to TorchScript format and saved as {self.output_file}")
                 return self.output_file
@@ -98,13 +145,14 @@ class ExportYolov8ModelTask(Task):
     
 
 @task(bind=True, base=ExportYolov8ModelTask, name='tasks.export.yolov8')
-def start_export_model(self, project_root, output_zip, format, content):
-    from .constant import TORCHSCRIPT_DEPS_DIR, YOLOV8_DETNET_TS_DLL
+def start_export_model(self, project_root, output_zip, convert_format, content, detect_type='classify'):
+    if os.path.exists(output_zip):
+        os.remove(output_zip)
 
     self.status = ExporterStatus.PENDING
     self.update_state(state=ExporterStatus.PENDING.name, meta={'status': self.status.name, 'exc_type': '', 'exc_message': ''})
     
-    exporter = ExportYOLOV8Model(project_root)
+    exporter = ExportYOLOV8Model(project_root, convert_format)
     
     try:
         success = exporter.convert()

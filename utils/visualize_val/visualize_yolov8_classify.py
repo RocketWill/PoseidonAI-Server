@@ -2,8 +2,8 @@
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-25 14:44:40
 LastEditors: Will Cheng (will.cheng@efctw.com)
-LastEditTime: 2024-10-09 15:46:44
-FilePath: /PoseidonAI-Server/utils/visualize_val/visualize_yolov8_detection.py
+LastEditTime: 2024-10-16 11:04:40
+FilePath: /PoseidonAI-Server/utils/visualize_val/visualize_yolov8_classify.py
 Description: 
 
 Copyright (c) 2024 by chengyong@pku.edu.cn, All Rights Reserved. 
@@ -23,39 +23,10 @@ from .common import VisualizeError, VisualizeStatus
 
 logger = logging.getLogger(__name__)
 
-def convert_yolo_to_bbox(label_file, img_width, img_height):
-    bboxes = []
-    classes = []
-    with open(label_file, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            # 解析一行，提取出class, x_center, y_center, width, height
-            parts = line.strip().split()
-            cls = int(parts[0])
-            x_center = float(parts[1]) * img_width
-            y_center = float(parts[2]) * img_height
-            width = float(parts[3]) * img_width
-            height = float(parts[4]) * img_height
-            
-            # 计算矩形框的左上角 (x0, y0) 和右下角 (x1, y1) 坐标
-            x0 = int(x_center - width / 2)
-            y0 = int(y_center - height / 2)
-            x1 = int(x_center + width / 2)
-            y1 = int(y_center + height / 2)
-            
-            # 添加到结果列表中
-            bboxes.append([x0, y0, x1, y1])
-            classes.append(cls)
-    
-    return bboxes, classes
-
-
-class VisualizeYolov8Detection:
-    def __init__(self, project_root, iou_thres, conf=0.01):
+class VisualizeYolov8Classify:
+    def __init__(self, project_root, *args):
         
         self.project_root = project_root
-        self.iou_thres = iou_thres
-        self.conf = conf
         self.training_dir = os.path.join(project_root, 'project', 'exp')
         self.weights_dir = os.path.join(self.training_dir, 'weights')
         self.weights_file = os.path.join(self.weights_dir, 'best.pt')
@@ -66,37 +37,38 @@ class VisualizeYolov8Detection:
         self.cfg = read_yaml( os.path.join(project_root, 'cfg.yaml'))
         self.device = '' if (torch.cuda.is_available()) else 'cpu'
         
-        self.val_image_dir = os.path.join(self.project_root, 'data', 'images', 'val')
-        self.val_label_dir = os.path.join(self.project_root, 'data', 'labels', 'val')
-        self.val_image_files = sorted([d for d in glob.glob(os.path.join(self.val_image_dir, '*')) if os.path.isfile(d)])
-        self.val_label_files = sorted([d for d in glob.glob(os.path.join(self.val_label_dir, '*.txt')) if os.path.isfile(d)])
-        self.class_names = self.dataset_cfg['names']
+        self.val_image_dir = os.path.join(self.project_root, 'data', 'val')
         self.model = YOLO(self.weights_file)
-        
+        self.class_names = self.model.names.values()
+        self.val_class_images_pairs = self.__get_val_class_image_pairs()
+        self.name_id_map = {v: k for k, v in self.model.names.items()}
         self.status = VisualizeStatus.IDLE
         self.error_detail = None
+
+    def __get_val_class_image_pairs(self):
+        class_image_pairs = []
+        for class_name in self.class_names:
+            image_files = glob.glob(os.path.join(self.val_image_dir, class_name, '*'))
+            [class_image_pairs.append((class_name, image_file)) for image_file in image_files]
+        return class_image_pairs
         
     def run_predict(self):
         preds = []
-        results = self.model(self.val_image_files, iou=self.iou_thres, conf=self.conf, save=False, device=self.device, imgsz=self.cfg['imgsz'])
+        val_image_files = [d[1] for d in self.val_class_images_pairs]
+        results = self.model(val_image_files, save=False, device=self.device, imgsz=self.cfg['imgsz'])
         for i, result in enumerate(results):
-            boxes = result.boxes  # Boxes object for bounding box outputs
-            probs = result.probs  # Probs object for classification outputs
-            bboxes = np.asarray(boxes.xyxy.cpu().tolist(), dtype=np.int32).tolist()
-            classes = [int(d) for d in boxes.cls.cpu().tolist()]
-            confs = [float(d) for d in boxes.conf.cpu().tolist()]
-            orig_height, orig_width = boxes.orig_shape
-            orig_boxes, orig_classes = convert_yolo_to_bbox(self.val_label_files[i], orig_width, orig_height)
+            dt_cls = result.probs.top1
+            gt_cls = self.name_id_map[self.val_class_images_pairs[i][0]]
             pred = dict(
-                filename=ntpath.basename(self.val_image_files[i]),
+                filename=ntpath.basename(val_image_files[i]),
                 dt=dict(
-                    points=bboxes,
-                    conf=confs,
-                    cls=classes
+                    points=-1,
+                    conf=-1,
+                    cls=dt_cls
                 ),
                 gt=dict(
-                    points=orig_boxes,
-                    cls=orig_classes
+                    points=-1,
+                    cls=gt_cls
                 )
             )
             preds.append(pred)
@@ -139,17 +111,17 @@ class VisualizeYolov8Detection:
             logger.error(f"Unexpected error during visualization: {str(e)}")
         return None
 
-class VisualizeYolov8DetectionTask(Task):
+class VisualizeYolov8ClassifyTask(Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error(f'Task {task_id} failed: {exc}')
         return super().on_failure(exc, task_id, args, kwargs, einfo)
 
 
-@task(bind=True, base=VisualizeYolov8DetectionTask, name='tasks.visualize.yolov8.detection')
-def start_visualize_yolov8_detection_task(self, project_root, iou_thres, conf=0.01):
+@task(bind=True, base=VisualizeYolov8ClassifyTask, name='tasks.visualize.yolov8.classify')
+def start_visualize_yolov8_classify_task(self, project_root, iou_thres, conf=0.01):
     self.status = VisualizeStatus.PENDING
     self.update_state(state=VisualizeStatus.PENDING.name, meta={'status': self.status.name, 'exc_type': '', 'exc_message': ''})
-    visualizer = VisualizeYolov8Detection(project_root, iou_thres, conf)
+    visualizer = VisualizeYolov8Classify(project_root, iou_thres, conf)
     try:
         preds_file = visualizer.run_visualization()
         if preds_file is not None:
