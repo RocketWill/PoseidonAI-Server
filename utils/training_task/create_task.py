@@ -9,9 +9,9 @@ from celery import task
 import torch
 
 from app.models import TrainingTask
-from utils.common import read_json, write_json, write_yaml, \
+from utils.common import read_json, write_json, write_yaml, read_yaml, \
                          remove_unannotated_images, filter_coco_images_and_annotations
-from utils.common.dataset_statistics import summarize_yolo_dataset, summarize_coco_dataset
+from utils.common.dataset_statistics import summarize_yolo_dataset, summarize_coco_dataset, summarize_yolo_classify_dataset
 
 # 定義任務進度步驟
 progress_steps = [
@@ -24,10 +24,17 @@ progress_steps = [
     'Finishing task'
 ]
 
+yolo_model_name_mapping = {
+    'ShortStory': 'yolov8n',
+    'Novella': 'yolov8s',
+    'Novel': 'yolov8m',
+    'Epic': 'yolov8l'
+}
+
 # Celery 任務，用於創建訓練任務
 @task(bind=True, name='tasks.create.task')
 def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir,
-                name, user_id, algorithm_id, dataset_id, training_configuration_id, save_key, description):
+                name, user_id, algorithm_id, dataset_id, training_configuration_id, save_key, description, detect_type):
     total_steps = len(progress_steps)  # 計算總步數
     current_step = 0
 
@@ -43,7 +50,10 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
     if training_framework_name == 'YOLOv8':
         update_progress(1, 'Preparing task')
         time.sleep(1)
-        [train_num, val_num], summary = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
+        if detect_type == 'classify':
+            [train_num, val_num], summary = create_yolov8_classify_task(args_file, epochs, gpu_id, val_ratio, os.path.join(dataset_dir, 'dataset'), model, project_dir, update_progress)
+        else:
+            [train_num, val_num], summary = create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress)
     elif training_framework_name == 'Detectron2-InstanceSegmentation':
         update_progress(1, 'Preparing task')
         time.sleep(1)
@@ -57,6 +67,45 @@ def create_task(self, training_framework_name, args_file, epochs, gpu_id, val_ra
     time.sleep(2)
 
     return {'train_num': train_num, 'val_num': val_num}
+
+def create_yolov8_classify_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
+    update_progress(1, 'Reading file structure and extracting class names')
+    time.sleep(1)
+    class_names = [d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))]
+    dataset_file = os.path.join(project_dir, 'dataset.yaml')
+    cfg_file = os.path.join(project_dir, 'cfg.yaml')
+
+    update_progress(1, 'Loading training arguments')
+    time.sleep(1)
+    training_args = read_json(args_file)
+    task_dir = os.path.join(project_dir, 'project')
+    update_progress(1, 'Splitting dataset into training and validation sets')
+    time.sleep(1)
+    dataset_file_content, (train_info, val_info) = split_yolov8_classify_dataset(
+        dataset_dir, val_ratio, class_names, os.path.join(project_dir, 'data')
+    )
+    dataset_summary, classes_summary = summarize_yolo_classify_dataset(train_info, val_info, class_names)
+    training_args.update(
+        {
+            'epochs': int(epochs), 
+            'device': 'cuda:{}'.format(int(gpu_id)) if torch.cuda.is_available() else '', 
+            'project': task_dir,
+            'model': yolo_model_name_mapping[model] + '-cls.pt',
+            'data': dataset_file_content['path'],
+            'mask_ratio': int(training_args['mask_ratio']),
+            'cache': '',
+            'task': 'classify'  # (detect, segment, classify, pose, obb)
+        }
+    )
+
+    write_yaml(dataset_file_content, dataset_file)
+    write_yaml(training_args, cfg_file)
+
+    update_progress(1, 'Task preparation complete.')
+    time.sleep(1)
+
+    return [sum(len(info['images']) for info in train_info), sum(len(info['images']) for info in val_info)], classes_summary
+
 
 # 創建 YOLOv8 訓練任務
 def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model, project_dir, update_progress):
@@ -81,10 +130,11 @@ def create_yolov8_task(args_file, epochs, gpu_id, val_ratio, dataset_dir, model,
             'epochs': int(epochs), 
             'device': 'cuda:{}'.format(int(gpu_id)) if torch.cuda.is_available() else '', 
             'project': task_dir,
-            'model': model,
+            'model': yolo_model_name_mapping[model] + '.pt',
             'data': dataset_file,
             'mask_ratio': int(training_args['mask_ratio']),
-            'cache': ''
+            'cache': '',
+            'task': 'detect'
         }
     )
     write_yaml(dataset_file_content, dataset_file)
@@ -127,6 +177,44 @@ def get_class_names(coco_label_file):
     data = read_json(coco_label_file)
     class_names = [category['name'] for category in data['categories']]
     return class_names
+
+def split_yolov8_classify_dataset(dataset_dir, val_ratio, class_names, output_dir):
+    # 创建 output_dir 下的 train 和 val 目录
+    train_dir = os.path.join(output_dir, 'train')
+    val_dir = os.path.join(output_dir, 'val')
+    [os.makedirs(os.path.join(train_dir, class_name), exist_ok=True) for class_name in class_names]
+    [os.makedirs(os.path.join(val_dir, class_name), exist_ok=True) for class_name in class_names]
+    train_info = []
+    val_info = []
+
+    # 遍历每个类别目录
+    for class_name in class_names:
+        class_dir = os.path.join(dataset_dir, class_name)
+        image_files = glob.glob(os.path.join(class_dir, '*'))
+
+        # 计算验证集的数量
+        val_image_num = int(val_ratio * len(image_files))
+
+        # 随机划分验证集和训练集
+        val_images = random.sample(image_files, val_image_num)
+        train_images = list(set(image_files) - set(val_images))
+        train_info.append({'class_name': class_name, 'images': train_images})
+        val_info.append({'class_name': class_name, 'images': val_images})
+
+        # 复制图片到对应的目录
+        for image_file in train_images:
+            shutil.copy(image_file, os.path.join(train_dir, class_name))
+        
+        for image_file in val_images:
+            shutil.copy(image_file, os.path.join(val_dir, class_name))
+
+    return dict(
+        path=output_dir,
+        train='train',
+        val='val' if val_ratio > 0 else '',
+        test='',
+        names=class_names
+    ), (train_info, val_info)
 
 # 分割 YOLOv8 數據集
 def split_yolov8_dataset(dataset_dir, val_ratio, class_names, output_dir):
