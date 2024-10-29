@@ -7,7 +7,7 @@ import pymongo
 from bson.objectid import ObjectId
 
 class User:
-    def __init__(self, username, password_hash, email, created_at=None, last_login=None, datasets=[]):
+    def __init__(self, username, password_hash, email, created_at=None, last_login=None, datasets=[], access='user'):
         self._id = None
         self.username = username
         self.password_hash = password_hash if 'scrypt:' in str(password_hash) else generate_password_hash(password_hash)
@@ -15,6 +15,7 @@ class User:
         self.created_at = created_at if created_at is not None else datetime.utcnow()
         self.last_login = last_login
         self.datasets = datasets
+        self.access = access
 
     @staticmethod
     def from_dict(user_data):
@@ -24,7 +25,8 @@ class User:
             email=user_data['email'],
             created_at=user_data['created_at'],
             last_login=user_data['last_login'],
-            datasets=user_data['datasets']
+            datasets=user_data['datasets'],
+            access=user_data.get('access', 'user')
         )
         user._id = user_data['_id']
         return user
@@ -37,7 +39,8 @@ class User:
                 'email': self.email,
                 'created_at': self.created_at,
                 'last_login': self.last_login,
-                'datasets': self.datasets
+                'datasets': self.datasets,
+                'access': self.access
             })
             return True
         except pymongo.errors.DuplicateKeyError as e:
@@ -701,4 +704,90 @@ class TrainingConfiguration:
             return configs
         except:
             print(traceback.print_exc())
+            return False
+
+class UserLog:
+    def __init__(self, user_id, action, timestamp=None, level='INFO', details=None, browser_info=None, url=None, referrer=None, device_type=None, 
+                 language=None, timezone=None, network_type=None, created_at=None):
+        self.user_id = ObjectId(user_id) if user_id else None  # 用户ID
+        self.timestamp = timestamp
+        self.level = level
+        self.action = action  # 用户操作（例如"登录", "点击按钮"）
+        self.details = details  # 操作详情
+        self.browser_info = browser_info if browser_info else {}  # 浏览器信息
+        self.url = url  # 当前访问的页面URL
+        self.referrer = referrer  # 来源页面
+        self.device_type = device_type  # 设备类型
+        self.language = language  # 语言设置
+        self.timezone = timezone  # 时区
+        self.network_type = network_type  # 网络类型
+        self.created_at = created_at if created_at else datetime.utcnow()  # 日志创建时间
+
+    def save(self):
+        """将日志保存到 MongoDB"""
+        try:
+            mongo.db.user_logs.insert_one({
+                'user_id': self.user_id,
+                'timestamp': self.timestamp,
+                'level': self.level,
+                'action': self.action,
+                'details': self.details,
+                'browser_info': self.browser_info,
+                'url': self.url,
+                'referrer': self.referrer,
+                'device_type': self.device_type,
+                'language': self.language,
+                'timezone': self.timezone,
+                'network_type': self.network_type,
+                'created_at': self.created_at,
+            })
+            return True
+        except Exception as e:
+            print(f"Error saving user log: {e}")
+            traceback.print_exc()
+            return False
+
+    @staticmethod
+    def find_by_user(user_id):
+        """根据用户ID查询日志"""
+        try:
+            logs = list(mongo.db.user_logs.find({'user_id': ObjectId(user_id)}))
+            logs = [{**d, '_id': str(d['_id']), 'created_at': d['created_at'].isoformat(), 'user_id': str(d['user_id'])} for d in logs]
+            return logs
+        except Exception as e:
+            print(f"Error finding user logs: {e}")
+            traceback.print_exc()
+            return False
+
+    @staticmethod
+    def find_by_action(action):
+        """根据操作类型查询日志"""
+        try:
+            logs = list(mongo.db.user_logs.find({'action': action}))
+            return logs
+        except Exception as e:
+            print(f"Error finding logs by action: {e}")
+            traceback.print_exc()
+            return False
+
+    @staticmethod
+    def delete_by_user(user_id):
+        """根据用户ID删除日志"""
+        try:
+            result = mongo.db.user_logs.delete_many({'user_id': ObjectId(user_id)})
+            return result.deleted_count
+        except Exception as e:
+            print(f"Error deleting logs by user: {e}")
+            traceback.print_exc()
+            return False
+
+    @staticmethod
+    def delete_by_id(log_id):
+        """根据日志ID删除日志"""
+        try:
+            result = mongo.db.user_logs.delete_one({'_id': ObjectId(log_id)})
+            return result.deleted_count
+        except Exception as e:
+            print(f"Error deleting log by ID: {e}")
+            traceback.print_exc()
             return False
