@@ -93,7 +93,8 @@ def profile(user_id):
             'last_login': user.last_login,
             'datasets': user.datasets,
             'tags': [],
-            'userid': user_id
+            'userid': user_id,
+            'access': user.access
         },
         'status': 'ok'
     }), 200
