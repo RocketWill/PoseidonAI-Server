@@ -93,6 +93,32 @@ class Detectron2Trainer:
         for dataset_name in self.dataset_names:
             if dataset_name in datasets:
                 DatasetCatalog.remove(dataset_name)
+
+    import json
+
+    def __is_bitmask(self, coco_anno_path):
+        """
+        檢查 COCO 格式的標註文件中的分割數據是否為 bitmask 格式
+        
+        參數:
+        coco_anno_path (str): COCO 格式標註文件的路徑
+        
+        返回:
+        bool: True 如果所有分割數據都是 bitmask 格式，否則 False
+        """
+        with open(coco_anno_path, 'r') as f:
+            coco_data = json.load(f)
+        
+        for annotation in coco_data.get("annotations", []):
+            segmentation = annotation.get("segmentation", None)
+            
+            # 如果 segmentation 存在，且不是 bitmask 格式，則返回 False
+            if segmentation and not (isinstance(segmentation, dict) and 'counts' in segmentation and 'size' in segmentation):
+                return False
+        
+        # 如果所有的分割數據都是 bitmask 格式，返回 True
+        return True
+
         
     def __init_cfg(self):
         logger.info("Initializing configuration")
@@ -104,6 +130,8 @@ class Detectron2Trainer:
         cfg.DATALOADER.NUM_WORKERS = 0
         cfg.DATASETS.TRAIN = (self.dataset_names[0],)
         cfg.DATASETS.TEST = (self.dataset_names[1],)
+        if self.__is_bitmask(os.path.join(self.project_dir, "data/train.json")):
+            cfg.INPUT.MASK_FORMAT = 'bitmask'
         return cfg.clone()
     
     def __init_trainer(self):

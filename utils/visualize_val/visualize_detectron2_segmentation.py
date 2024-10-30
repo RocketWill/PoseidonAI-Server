@@ -160,17 +160,19 @@ class VisualizeDetectron2Segmentation:
             for ann in anns:
                 segmentation = ann['segmentation']
                 category_id = ann['category_id']
-
                 if isinstance(segmentation, list):
                     # Polygon format
                     for seg in segmentation:
                         gt_points.append(seg)
                         gt_classes.append(category_id)
-                elif isinstance(segmentation, dict) or isinstance(segmentation, str):
+                elif isinstance(segmentation, dict) and 'counts' in segmentation and 'size' in segmentation:
                     # RLE format
                     rle = segmentation
+                    # Convert 'counts' to bytes if it's a list
+                    if isinstance(rle['counts'], list):
+                        rle['counts'] = maskUtils.frPyObjects([rle], rle['size'][0], rle['size'][1])[0]['counts']
+                    
                     mask = maskUtils.decode(rle)
-                    # Convert mask to polygons
                     polygons = self.mask_to_polygons(mask)
                     for polygon in polygons:
                         gt_points.append(polygon)
@@ -197,8 +199,10 @@ class VisualizeDetectron2Segmentation:
                 elif isinstance(segmentation, dict) or isinstance(segmentation, str):
                     # RLE format
                     rle = segmentation
+                    if isinstance(rle['counts'], list):
+                        rle['counts'] = maskUtils.frPyObjects([rle], rle['size'][0], rle['size'][1])[0]['counts']
+                    
                     mask = maskUtils.decode(rle)
-                    # Convert mask to polygons
                     polygons = self.mask_to_polygons(mask)
                     for polygon in polygons:
                         dt_points.append(polygon)
@@ -220,6 +224,7 @@ class VisualizeDetectron2Segmentation:
             preds.append(pred)
 
         return preds
+
 
     def predict(self):
         preds = self.run_predict()
