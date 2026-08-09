@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:53:13
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-08-07 09:52:39
 FilePath: /PoseidonAI-Server/utils/training_configuration/tools/yolov8.py
 Description: 

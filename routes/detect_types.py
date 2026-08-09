@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-07-29 08:28:38
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-07-30 09:03:55
 FilePath: /PoseidonAI-Server/routes/detect_types.py
 '''

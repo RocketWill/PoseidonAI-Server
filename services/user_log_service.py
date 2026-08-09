@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-10-21 13:09:09
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-22 08:55:49
 FilePath: /PoseidonAI-Server/services/user_log_service.py
 '''

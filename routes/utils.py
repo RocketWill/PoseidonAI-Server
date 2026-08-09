@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-27 13:16:53
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-08-05 16:25:27
 FilePath: /PoseidonAI-Server/routes/utils.py
 Description: 

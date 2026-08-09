@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-08-12 10:19:06
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-08 16:56:21
 FilePath: /PoseidonAI-Server/utils/common/dataset_statistics.py
 '''
