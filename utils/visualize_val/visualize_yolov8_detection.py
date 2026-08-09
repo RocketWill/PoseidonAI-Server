@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-25 14:44:40
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-09 15:46:44
 FilePath: /PoseidonAI-Server/utils/visualize_val/visualize_yolov8_detection.py
 Description: 

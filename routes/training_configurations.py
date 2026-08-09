@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 22:17:36
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-07-31 08:17:39
 FilePath: /PoseidonAI-Server/routes/training_configurations.py
 Description: 

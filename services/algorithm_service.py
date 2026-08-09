@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-07-30 08:36:35
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-07-30 09:39:55
 FilePath: /PoseidonAI-Server/services/algorithm_service.py
 '''

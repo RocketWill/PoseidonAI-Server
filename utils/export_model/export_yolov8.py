@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-09-11 15:51:27
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-16 13:08:47
 FilePath: /PoseidonAI-Server/utils/export_model/export_yolov8.py
 '''

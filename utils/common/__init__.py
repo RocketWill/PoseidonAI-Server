@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 16:59:09
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-09-18 14:52:35
 FilePath: /PoseidonAI-Server/utils/common/__init__.py
 Description: 

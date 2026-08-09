@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-10-04 13:42:14
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-04 14:36:45
 FilePath: /PoseidonAI-Server/utils/export_model/export_detectron2.py
 '''

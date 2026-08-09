@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-26 11:43:42
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-18 11:26:04
 FilePath: /PoseidonAI-Server/services/training_task_service.py
 Description: 

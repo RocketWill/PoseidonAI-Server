@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-08-12 08:42:22
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-09 10:46:46
 FilePath: /PoseidonAI-Server/utils/training_task/trainer.py
 '''

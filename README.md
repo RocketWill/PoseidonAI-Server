@@ -1,86 +1,168 @@
-# Server Side
+# PoseidonAI Server
 
-This is the backend repository for the PoseidonAI, a web application designed to manage a deep learning model training platform. The backend is implemented using Python Flask and MongoDB, providing APIs for user management, dataset handling, model training tasks, and more.
+PoseidonAI is an independently developed computer-vision workflow platform for managing the path from dataset preparation and training configuration to evaluation, model export, and software integration.
 
-## Features
+This repository contains the Flask backend, asynchronous task services, dataset utilities, training and evaluation logic, and model-export workflows. The web interface is maintained in [PoseidonAI Client](https://github.com/RocketWill/PoseidonAI-Client).
 
-- **User Management:**
-  - Register, login, logout users.
-  - Manage user permissions and profiles.
+The platform was validated for internal engineering use across three projects and approximately 20,000 images with a small team of fewer than five users. These figures describe the verified internal scope, not enterprise-wide adoption.
 
-- **Dataset Management:**
-  - Handle dataset uploads in MSCOCO format.
-  - CRUD operations for datasets.
+## System architecture
 
-- **Model Training Tasks:**
-  - Manage training tasks with different algorithms (e.g., YoloV8, Detectron2).
-  - Track training progress, metrics, and logs.
+```mermaid
+flowchart LR
+    U["Engineer"] --> C["PoseidonAI Client<br/>React + TypeScript"]
+    C --> A["Flask REST API"]
 
-- **Security:**
-  - JWT token authentication for secure API endpoints.
-  - Password hashing for user data protection.
+    A --> AUTH["Authentication<br/>and user logs"]
+    A --> DATA["Dataset services"]
+    A --> TRAIN["Training services"]
+    A --> EVAL["Evaluation and<br/>visualization services"]
+    A --> EXPORT["Model export services"]
 
-## Technology Stack
+    AUTH --> DB["MongoDB"]
+    DATA --> DB
+    TRAIN --> DB
+    EVAL --> DB
+    EXPORT --> DB
 
-- **Python Framework:** Flask
-- **Database:** MongoDB
-- **Authentication:** JWT (JSON Web Tokens)
-- **Deployment:** Docker (optional)
+    TRAIN --> Q["Celery task queue"]
+    EVAL --> Q
+    EXPORT --> Q
+    Q --> R["Redis broker<br/>and result backend"]
+    Q --> W["GPU-aware workers"]
+```
 
-## Getting Started
+## End-to-end workflow
 
-1. **Run MongoDB using Docker**
+```mermaid
+flowchart LR
+    A["Create dataset"] --> B["Upload images<br/>and annotations"]
+    B --> C["Validate and<br/>inspect dataset"]
+    C --> D["Create training<br/>configuration"]
+    D --> E["Select algorithm<br/>and GPU"]
+    E --> F["Run asynchronous<br/>training task"]
+    F --> G["Evaluate model"]
+    G --> H["Visualize predictions<br/>and metrics"]
+    H --> I["Export model"]
+    I --> J["Integrate with<br/>C++, Python, or C#"]
+```
 
-   Start MongoDB with Docker, ensuring to set a secure username and password:
+## Capabilities
+
+| Area | Public implementation |
+| --- | --- |
+| User management | Registration, login, JWT authentication, profiles, and user-action logs |
+| Dataset management | Dataset CRUD, image and annotation upload, dataset statistics, and visualization |
+| Dataset utilities | COCO validation, annotation filtering, COCO-to-YOLO conversion, and dataset splitting |
+| Training configuration | Configurable YOLOv8 and Detectron2 workflows |
+| Task execution | Celery-based asynchronous execution with explicit GPU assignment and progress tracking |
+| Model training | YOLOv8 classification and object detection; Detectron2 instance segmentation |
+| Evaluation | Classification, detection, and instance-segmentation evaluation workflows |
+| Result inspection | Prediction visualization, summary data, confidence curves, PR curves, and task results |
+| Model export | Validated YOLOv8 and Detectron2 export workflows, including deployment-oriented packaging |
+| Integration | Companion client guidance for C++, Python, and C# runtime integration |
+
+## Supported computer-vision workflows
+
+- YOLOv8 image classification
+- YOLOv8 object detection
+- Detectron2 instance segmentation
+- COCO-based dataset preparation and validation
+- GPU-aware training and evaluation task execution
+- Model evaluation and prediction visualization
+- Model export and deployment integration
+
+## Technology stack
+
+- **API:** Python, Flask, Flask-CORS
+- **Authentication:** Flask-JWT-Extended
+- **Database:** MongoDB, Flask-PyMongo
+- **Task processing:** Celery, Redis
+- **Computer vision:** Ultralytics YOLOv8, Detectron2, pycocotools, OpenCV
+- **Companion frontend:** React, TypeScript, Ant Design Pro
+
+## Repository layout
+
+```text
+PoseidonAI-Server/
+├── app/        # Flask application, configuration, database, Redis, and Celery setup
+├── routes/     # REST API blueprints
+├── services/   # Application services and workflow coordination
+├── tasks/      # Asynchronous task entry points
+├── utils/
+│   ├── dataset/                # Dataset validation, conversion, and visualization
+│   ├── training_configuration/ # Framework-specific configuration builders
+│   ├── training_task/          # Dataset preparation and model training
+│   ├── evaluation_task/        # Evaluation workflows
+│   ├── visualize_val/          # Prediction visualization
+│   └── export_model/           # Model conversion and deployment packaging
+├── requirements.txt
+└── run.py
+```
+
+## API areas
+
+The Flask application registers the following API groups:
+
+| Prefix | Purpose |
+| --- | --- |
+| `/api/auth` | Registration, login, logout, and profile access |
+| `/api/datasets` | Dataset lifecycle, statistics, and visualization |
+| `/api/detect-types` | Supported computer-vision task types |
+| `/api/dataset-formats` | Dataset-format metadata |
+| `/api/training-configurations` | Training configuration lifecycle |
+| `/api/training-frameworks` | Framework metadata |
+| `/api/algorithms` | Algorithm metadata |
+| `/api/training-tasks` | Training, evaluation, visualization, and export tasks |
+| `/api/user-logs` | User-action logs |
+
+## Local setup
+
+PoseidonAI requires Python, MongoDB, Redis, and a Celery worker. GPU-enabled training additionally requires a compatible CUDA and framework environment.
+
+1. Create a Python environment and install dependencies:
 
    ```bash
-   docker run -it --name mongodb \
-       --privileged=true --restart=always \
-       -e MONGO_INITDB_ROOT_USERNAME=admin \
-       -e MONGO_INITDB_ROOT_PASSWORD=admin \
-       -p 27017:27017 \
-       mongo:latest
-   ```
-
-   > **Note:** Replace `admin` with your desired username and password. Ensure to keep these credentials secure and update your MongoDB URI (`MONGO_URI`) accordingly in the backend `.env` file.
-
-2. **Installation**
-
-   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-3. **Configuration**
+2. Start MongoDB and Redis using local services or containers. Use your own credentials and do not commit them to the repository.
 
-   - For now the configurations are in `app/config.py`, please change the fields you want and just run `python run.py` to start the project. (ignore below content)
+3. Configure the Flask application in `app/config.py` for the target environment.
 
-   - Set up environment variables for Flask and MongoDB in `.env` file.
-
-     ```env
-     FLASK_APP=run.py
-     FLASK_ENV=development
-     MONGO_URI=mongodb://admin:admin@localhost:27017/poseidon
-     SECRET_KEY=your_secret_key_here
-     ```
-
-4. **Run the Application**
+4. Start the API:
 
    ```bash
-   flask run
+   python run.py
    ```
 
-   The backend server will start at `http://localhost:5000`.
+5. Start a Celery worker in a separate process:
 
-## API Documentation
+   ```bash
+   celery -A run.celery worker --loglevel=info -E --concurrency=1
+   ```
 
-Explore the API endpoints and usage details in [Link to API Documentation].
+The current project uses application configuration rather than a complete production configuration layer. Review all paths, database settings, JWT secrets, and Redis settings before running it outside a local or controlled internal environment.
 
-## Development
+## Project scope
 
-- Clone the repository and create feature branches for development.
-- Ensure to follow Python coding standards and include unit tests for new features.
-- Submit Pull Requests for code review and integration.
+PoseidonAI demonstrates an internally validated, end-to-end computer-vision workflow with MLOps-oriented capabilities. It should not be interpreted as a complete enterprise MLOps suite: the public version does not claim organization-wide governance, production monitoring, model-registry automation, or large-scale multi-tenant operation.
 
-## Contact
+The public repositories do not include customer datasets, proprietary models, production credentials, confidential equipment parameters, or customer-specific deployment details.
 
-For questions or support, contact [Your Contact Information].
+## Current limitations
+
+- GPU selection is explicit and task-aware; the public code does not implement automatic cluster-wide resource arbitration.
+- Configuration is still application-oriented and requires environment-specific review before deployment.
+- The public repository does not include a complete automated test and CI baseline.
+- Runtime dependencies for GPU training and model export depend on the selected framework, CUDA environment, and deployment target.
+
+## Related repository
+
+- [PoseidonAI Client](https://github.com/RocketWill/PoseidonAI-Client) — web interface for dataset, training, evaluation, visualization, and export workflows.
+
+## License
+
+No open-source license has been selected. Unless a license is added, the repository is available for viewing and evaluation but does not grant reuse rights.

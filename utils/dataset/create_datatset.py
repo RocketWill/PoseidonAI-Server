@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-05 19:04:56
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-08 14:04:11
 FilePath: /PoseidonAI-Server/utils/dataset/create_datatset.py
 Description: 

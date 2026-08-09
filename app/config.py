@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-07-24 16:53:06
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-09-18 16:35:39
 FilePath: /PoseidonAI-Server/app/config.py
 Description: 

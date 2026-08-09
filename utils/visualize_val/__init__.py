@@ -1,7 +1,7 @@
 '''
 Author: Will Cheng chengyong@pku.edu.cn
 Date: 2024-08-25 14:44:25
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-10-09 15:25:09
 FilePath: /PoseidonAI-Server/utils/visualize_val/__init__.py
 Description: 

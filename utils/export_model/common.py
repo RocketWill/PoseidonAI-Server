@@ -1,7 +1,7 @@
 '''
-Author: Will Cheng (will.cheng@efctw.com)
+Author: Will Cheng
 Date: 2024-09-11 16:11:09
-LastEditors: Will Cheng (will.cheng@efctw.com)
+LastEditors: Will Cheng
 LastEditTime: 2024-09-18 18:12:53
 FilePath: /PoseidonAI-Server/utils/export_model/common.py
 '''
