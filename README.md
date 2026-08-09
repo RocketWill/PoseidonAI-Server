@@ -8,44 +8,41 @@ The platform was validated for internal engineering use across three projects an
 
 ## System architecture
 
-```mermaid
-flowchart LR
-    U["Engineer"] --> C["PoseidonAI Client<br/>React + TypeScript"]
-    C --> A["Flask REST API"]
+![PoseidonAI architecture](docs/images/architecture.svg)
 
-    A --> AUTH["Authentication<br/>and user logs"]
-    A --> DATA["Dataset services"]
-    A --> TRAIN["Training services"]
-    A --> EVAL["Evaluation and<br/>visualization services"]
-    A --> EXPORT["Model export services"]
+_Flask APIs coordinate persistent state and asynchronous workers for training, evaluation, visualization, and model export._
 
-    AUTH --> DB["MongoDB"]
-    DATA --> DB
-    TRAIN --> DB
-    EVAL --> DB
-    EXPORT --> DB
+## Example task outputs
 
-    TRAIN --> Q["Celery task queue"]
-    EVAL --> Q
-    EXPORT --> Q
-    Q --> R["Redis broker<br/>and result backend"]
-    Q --> W["GPU-aware workers"]
-```
+### Dataset summary
+
+![PCB dataset distribution](docs/images/dataset-distribution.png)
+
+_The task summary records train–validation distribution at both image and annotation-instance levels._
+
+### Training curves
+
+![Training and validation loss](docs/images/training-loss.png)
+
+_Worker-generated results are exposed through the task API for progress and convergence monitoring._
+
+### Evaluation
+
+![Evaluation summary](docs/images/evaluation-summary.png)
+
+_Evaluation metrics are stored with the execution parameters used to produce them._
+
+### Export packaging
+
+![Model export options](docs/images/model-export.png)
+
+_The export task can package model artifacts with the runtime library and optional supporting dependencies._
 
 ## End-to-end workflow
 
-```mermaid
-flowchart LR
-    A["Create dataset"] --> B["Upload images<br/>and annotations"]
-    B --> C["Validate and<br/>inspect dataset"]
-    C --> D["Create training<br/>configuration"]
-    D --> E["Select algorithm<br/>and GPU"]
-    E --> F["Run asynchronous<br/>training task"]
-    F --> G["Evaluate model"]
-    G --> H["Visualize predictions<br/>and metrics"]
-    H --> I["Export model"]
-    I --> J["Integrate with<br/>C++, Python, or C#"]
-```
+![PoseidonAI workflow](docs/images/workflow.svg)
+
+_The backend supports the path from dataset preparation and GPU-targeted execution to evaluation, export, and runtime integration._
 
 ## Capabilities
 

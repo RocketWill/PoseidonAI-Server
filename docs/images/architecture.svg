@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="520" viewBox="0 0 1440 520" role="img" aria-labelledby="title desc">
+  <title id="title">PoseidonAI client-server architecture</title>
+  <desc id="desc">The React client calls Flask APIs backed by MongoDB and Celery workers with Redis, GPU execution, artifact storage, and export runtimes.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#1f2937" flood-opacity=".10"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7c8aa5"/></marker>
+    <style>.heading{font:700 25px Inter,Arial,sans-serif;fill:#172033}.label{font:700 17px Inter,Arial,sans-serif;fill:#172033}.detail{font:400 13px Inter,Arial,sans-serif;fill:#667085}.group{font:700 13px Inter,Arial,sans-serif;letter-spacing:1.5px;fill:#1677ff}.line{fill:none;stroke:#7c8aa5;stroke-width:2;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1440" height="520" rx="24" fill="#f7f9fc"/>
+  <text x="48" y="52" class="heading">PoseidonAI system architecture</text>
+  <text x="48" y="91" class="group">CLIENT</text><text x="454" y="91" class="group">API &amp; STATE</text><text x="914" y="91" class="group">ASYNC EXECUTION</text>
+  <g filter="url(#shadow)">
+    <g transform="translate(48 118)"><rect width="320" height="274" rx="18" fill="#fff"/><rect width="320" height="9" rx="5" fill="#1677ff"/><text x="28" y="58" class="label">React + TypeScript</text><text x="28" y="84" class="detail">Ant Design Pro interface</text><rect x="28" y="112" width="264" height="42" rx="10" fill="#eef5ff"/><text x="46" y="138" class="detail">Dataset and configuration</text><rect x="28" y="166" width="264" height="42" rx="10" fill="#eef5ff"/><text x="46" y="192" class="detail">Training and evaluation</text><rect x="28" y="220" width="264" height="42" rx="10" fill="#eef5ff"/><text x="46" y="246" class="detail">Visualization and export</text></g>
+    <g transform="translate(454 118)"><rect width="350" height="126" rx="18" fill="#fff"/><rect width="350" height="9" rx="5" fill="#13c2c2"/><text x="28" y="59" class="label">Flask API</text><text x="28" y="86" class="detail">JWT, resources, task orchestration</text></g>
+    <g transform="translate(454 266)"><rect width="164" height="126" rx="18" fill="#fff"/><text x="24" y="55" class="label">MongoDB</text><text x="24" y="82" class="detail">Users, datasets,</text><text x="24" y="102" class="detail">tasks, metadata</text></g>
+    <g transform="translate(640 266)"><rect width="164" height="126" rx="18" fill="#fff"/><text x="24" y="55" class="label">Redis</text><text x="24" y="82" class="detail">Broker and task</text><text x="24" y="102" class="detail">state exchange</text></g>
+    <g transform="translate(914 118)"><rect width="478" height="274" rx="18" fill="#fff"/><rect width="478" height="9" rx="5" fill="#722ed1"/><text x="28" y="58" class="label">Celery workers</text><text x="28" y="84" class="detail">GPU-targeted asynchronous task execution</text><rect x="28" y="112" width="198" height="58" rx="11" fill="#f5f0ff"/><text x="47" y="137" class="label">Train</text><text x="47" y="157" class="detail">model + metrics</text><rect x="248" y="112" width="198" height="58" rx="11" fill="#f5f0ff"/><text x="267" y="137" class="label">Evaluate</text><text x="267" y="157" class="detail">precision, recall, F1</text><rect x="28" y="192" width="198" height="58" rx="11" fill="#f5f0ff"/><text x="47" y="217" class="label">Visualize</text><text x="47" y="237" class="detail">validation predictions</text><rect x="248" y="192" width="198" height="58" rx="11" fill="#f5f0ff"/><text x="267" y="217" class="label">Export</text><text x="267" y="237" class="detail">model + runtime bundle</text></g>
+  </g>
+  <path d="M368 181H444" class="line"/><path d="M804 181H904" class="line"/><path d="M536 244V256" class="line"/><path d="M722 244V256" class="line"/>
+  <rect x="454" y="432" width="938" height="48" rx="12" fill="#eaf0f8"/><text x="477" y="462" class="detail">Artifacts and datasets · training outputs · evaluation results · visualization assets · export packages</text>
+  <path d="M1152 392V422" class="line"/>
+</svg>
